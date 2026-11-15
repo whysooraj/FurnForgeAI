@@ -1,0 +1,62 @@
+# Dependencies
+node_modules/
+frontend/node_modules/
+package-lock.json
+
+# Model weights & Hugging Face / PyTorch caches
+.hf_cache/
+backend/.hf_cache/
+.torch_cache/
+backend/.torch_cache/
+*.ckpt
+*.safetensors
+*.bin
+*.onnx
+
+# Python cache & virtual environments
+__pycache__/
+*/__pycache__/
+*/*/__pycache__/
+*/*/*/__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.env
+backend/.env
+.venv/
+venv/
+env/
+ENV/
+dist/
+build/
+*.egg-info/
+
+# Frontend builds & logs
+frontend/dist/
+frontend/dist-ssr/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.eslintcache
+
+# Generated outputs & user uploads (preserve directory structure via .gitkeep)
+backend/uploads/*
+!backend/uploads/.gitkeep
+backend/outputs/*
+!backend/outputs/.gitkeep
+
+# Database
+backend/app/database/*.db
+backend/app/database/*.db-journal
+backend/app/database/*.sqlite
+backend/app/database/*.sqlite3
+*.db
+
+# IDE & OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
