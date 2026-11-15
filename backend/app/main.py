@@ -40,10 +40,11 @@ from app.config import (
 )
 from app.database.db import db
 from app.jobs import Job, JobManager
-from app.models.schemas import GenerateRequest, PreprocessRequest
+from app.models.schemas import GenerateRequest, PreprocessRequest, SpecRenderRequest
 from app.pipeline.cnn_extractor import CNNFeatureExtractor
 from app.pipeline.cv_preprocessor import OpenCVPreprocessor
 from app.pipeline.diffusion_engine import DiffusionEngine
+from app.pipeline.photoreal_renderer import render_specification
 from app.pipeline.prompt_builder import build_prompt
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s: %(message)s")
@@ -82,7 +83,15 @@ def _startup() -> None:
 
 # --------------------------------------------------------------------------- helpers
 def _decode_upload(data_url: str) -> np.ndarray:
-    """Validate size/format of a base64 upload and decode it to BGR."""
+    """Validate size/format of a base64 upload or file path and decode it to BGR."""
+    if data_url.startswith("/") or not data_url.startswith("data:"):
+        clean_name = data_url.split("?")[0].split("/")[-1]
+        for candidate_dir in (SAMPLE_DIR, UPLOAD_DIR, OUTPUT_DIR):
+            cand_path = candidate_dir / clean_name
+            if cand_path.exists():
+                img = cv2.imread(str(cand_path))
+                if img is not None:
+                    return img
     payload = data_url.split(",", 1)[1] if "," in data_url else data_url
     if len(payload) * 3 / 4 > MAX_UPLOAD_MB * 1024 * 1024:
         raise HTTPException(413, f"Image exceeds the {MAX_UPLOAD_MB} MB limit.")
@@ -175,6 +184,34 @@ def preprocess(req: PreprocessRequest):
         "pixel_metrics": features.get("pixel_metrics") if features else None,
         "cnn_error": None if cnn.ready else cnn.error,
     }
+
+
+@app.post("/api/spec-render")
+def spec_render(req: SpecRenderRequest):
+    """
+    Instantly render a photoreal furniture response image strictly adhering
+    to the student's selected specification (Material, Palette Color, Style, Surface Finish).
+    """
+    res = render_specification(
+        category=req.category,
+        material=req.material,
+        color=req.color,
+        style=req.style,
+        finish=req.finish,
+        custom_prompt=req.custom_prompt or "",
+    )
+    # Also attach CNN features for the category if available
+    try:
+        cat_key = req.category.strip().lower()
+        sketch_p = SAMPLE_DIR / f"{cat_key}_sketch.png"
+        if sketch_p.exists() and cnn.ready:
+            bgr = cv2.imread(str(sketch_p))
+            prep = OpenCVPreprocessor.process_sketch(bgr)
+            features = cnn.analyze(prep["padded_bgr"], prep["edge_map"])
+            res["cnn_features"] = features
+    except Exception as e:
+        logger.warning("CNN analysis during spec render: %s", e)
+    return res
 
 
 @app.post("/api/generate", status_code=202)

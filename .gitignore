@@ -46,6 +46,8 @@ backend/uploads/*
 !backend/uploads/.gitkeep
 backend/outputs/*
 !backend/outputs/.gitkeep
+frontend/public/outputs/*
+!frontend/public/outputs/.gitkeep
 
 # Database
 backend/app/database/*.db
@@ -60,3 +62,4 @@ backend/app/database/*.sqlite3
 .DS_Store
 Thumbs.db
 desktop.ini
+

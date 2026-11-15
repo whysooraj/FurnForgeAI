@@ -33,15 +33,42 @@ export default function CustomizerPanel({
   hasImage
 }) {
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const currentColorHex = COLORS.find((c) => c.name === color)?.hex || '#8B5A2B';
 
   return (
     <div className="bg-white rounded-3xl p-6 sm:p-7 border border-[#E8E2D5] shadow-xs space-y-7">
-      {/* Header */}
+      {/* Header with Live Active Specification Status */}
       <div>
         <span className="text-[11px] font-bold uppercase tracking-wider text-[#8B5A2B]">
           Step 2 • Material & Style Customization
         </span>
         <h3 className="text-xl font-bold text-[#1A1A1E]">Design Specification</h3>
+
+        {/* Live Specification Pill */}
+        <div className="mt-2.5 p-3 rounded-2xl bg-[#FAF8F5] border border-[#EAE4D7] flex flex-wrap items-center justify-between gap-2 text-xs shadow-xs">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-[#78716C] flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            Live Response Active:
+          </span>
+          <div className="flex flex-wrap items-center gap-1.5 font-bold text-[#1A1A1E]">
+            <span className="px-2 py-0.5 rounded-lg bg-white border border-[#E0D7C6] text-[11px] shadow-2xs">
+              {category}
+            </span>
+            <span className="text-[#8B5A2B]">•</span>
+            <span className="px-2 py-0.5 rounded-lg bg-white border border-[#E0D7C6] text-[11px] shadow-2xs">
+              {material}
+            </span>
+            <span className="text-[#8B5A2B]">•</span>
+            <span className="px-2 py-0.5 rounded-lg bg-white border border-[#E0D7C6] text-[11px] shadow-2xs flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-full border border-black/20" style={{ backgroundColor: currentColorHex }} />
+              {color}
+            </span>
+            <span className="text-[#8B5A2B]">•</span>
+            <span className="px-2 py-0.5 rounded-lg bg-white border border-[#E0D7C6] text-[11px] shadow-2xs">
+              {finish} ({style})
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* 1. Category Selection */}
@@ -75,22 +102,26 @@ export default function CustomizerPanel({
           <span className="text-[11px] font-normal text-[#8B5A2B]">{material}</span>
         </label>
         <div className="grid grid-cols-5 gap-2">
-          {MATERIALS.map((mat) => (
-            <button
-              key={mat.id}
-              onClick={() => setMaterial(mat.id)}
-              className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center gap-1 ${
-                material === mat.id
-                  ? 'border-[#8B5A2B] bg-[#8B5A2B] text-white font-bold shadow-sm shadow-[#8B5A2B]/20'
-                  : 'border-[#EAE4D7] bg-[#FAF8F5] text-[#444] hover:border-[#8B5A2B]/40 hover:bg-white'
-              }`}
-            >
-              <span className="text-xs font-semibold">{mat.name.split(' ')[0]}</span>
-              <span className={`text-[10px] truncate w-full ${material === mat.id ? 'text-white/80' : 'text-[#888]'}`}>
-                {mat.subtypes[0].split(' ')[1] || mat.subtypes[0]}
-              </span>
-            </button>
-          ))}
+          {MATERIALS.map((mat) => {
+            const isSel = material === mat.id;
+            return (
+              <button
+                key={mat.id}
+                onClick={() => setMaterial(mat.id)}
+                title={mat.desc}
+                className={`p-2.5 rounded-xl border text-center transition-all flex flex-col items-center gap-1 ${
+                  isSel
+                    ? 'border-[#8B5A2B] bg-[#8B5A2B] text-white font-bold shadow-sm shadow-[#8B5A2B]/20'
+                    : 'border-[#EAE4D7] bg-[#FAF8F5] text-[#444] hover:border-[#8B5A2B]/40 hover:bg-white'
+                }`}
+              >
+                <span className="text-xs font-semibold">{mat.name.split(' ')[0]}</span>
+                <span className={`text-[10px] truncate w-full ${isSel ? 'text-white/80' : 'text-[#888]'}`}>
+                  {mat.subtypes[0].split(' ')[1] || mat.subtypes[0]}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -98,7 +129,10 @@ export default function CustomizerPanel({
       <div className="space-y-2.5">
         <label className="text-xs font-bold uppercase tracking-wider text-[#555] flex items-center justify-between">
           <span>Designer Palette</span>
-          <span className="text-[11px] font-normal text-[#8B5A2B]">{color}</span>
+          <span className="text-[11px] font-normal text-[#8B5A2B] flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full border border-black/20" style={{ backgroundColor: currentColorHex }} />
+            {color}
+          </span>
         </label>
         <div className="grid grid-cols-6 sm:grid-cols-6 gap-2">
           {COLORS.map((c) => {
@@ -110,7 +144,7 @@ export default function CustomizerPanel({
                 title={`${c.name} (${c.tag})`}
                 className={`relative aspect-square rounded-xl transition-all p-1 flex items-center justify-center border ${
                   isSelected
-                    ? 'border-[#1A1A1E] scale-105 shadow-md'
+                    ? 'border-[#1A1A1E] scale-105 shadow-md ring-2 ring-[#8B5A2B]'
                     : 'border-[#E2DBCF] hover:scale-105'
                 }`}
                 style={{ backgroundColor: c.hex }}
@@ -304,7 +338,7 @@ export default function CustomizerPanel({
         >
           <Sparkles className="w-5 h-5 text-amber-200" />
           <span>
-            {isGenerating ? 'Synthesizing Photoreal Furniture...' : 'Forge Photoreal Furniture'}
+            {isGenerating ? 'Synthesizing Full Diffusion Iterations...' : 'Forge Deep Diffusion Render (Save to Gallery)'}
           </span>
         </button>
 
@@ -317,4 +351,3 @@ export default function CustomizerPanel({
     </div>
   );
 }
-

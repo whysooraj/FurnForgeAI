@@ -83,23 +83,13 @@ export default function SketchUploader({
     }
   };
 
-  const handleSelectSample = async (sample) => {
+  const handleSelectSample = (sample) => {
     setSelectedSampleId(sample.id);
     if (sample.category && setCategory) {
       setCategory(sample.category);
     }
-    // Fetch sample image as base64 to allow real-time OpenCV edge tweaking
-    try {
-      const res = await fetch(sample.url);
-      const blob = await res.blob();
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setSelectedImage(reader.result);
-      };
-      reader.readAsDataURL(blob);
-    } catch (err) {
-      console.error('Failed to load sample image:', err);
-    }
+    // Set directly for zero latency
+    setSelectedImage(sample.url);
   };
 
   const handleClear = () => {
@@ -174,7 +164,24 @@ export default function SketchUploader({
             </button>
           ))}
         </div>
+
+        {/* Upload Custom Sketch Quick Button */}
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          className="w-full py-2 px-3 border border-dashed border-[#D5C7B0] hover:border-[#8B5A2B] rounded-xl text-xs text-[#78716C] hover:text-[#5C3818] bg-[#FAF8F5] hover:bg-white flex items-center justify-center gap-1.5 transition-colors"
+        >
+          <UploadCloud className="w-3.5 h-3.5 text-[#8B5A2B]" />
+          <span>Or click here to upload your own custom sketch</span>
+        </button>
       </div>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/png, image/jpeg, image/jpg, image/webp"
+        className="hidden"
+        onChange={(e) => e.target.files && handleFileProcess(e.target.files[0])}
+      />
 
       {/* Upload Zone / Canvas Preview */}
       {!selectedImage ? (
@@ -192,13 +199,6 @@ export default function SketchUploader({
               : 'border-[#D9D1C1] bg-[#FAF8F5] hover:border-[#8B5A2B] hover:bg-white'
           }`}
         >
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/png, image/jpeg, image/jpg, image/webp"
-            className="hidden"
-            onChange={(e) => e.target.files && handleFileProcess(e.target.files[0])}
-          />
           <div className="w-14 h-14 rounded-2xl bg-[#EAE2D2] flex items-center justify-center text-[#8B5A2B] shadow-inner">
             <UploadCloud className="w-7 h-7 stroke-[1.8]" />
           </div>

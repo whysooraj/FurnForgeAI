@@ -11,6 +11,15 @@ class PreprocessRequest(BaseModel):
     method: str = Field(default="canny")  # canny | adaptive_threshold | lineart
 
 
+class SpecRenderRequest(BaseModel):
+    category: str = "Chair"
+    material: str = "Wood"
+    color: str = "Warm Walnut"
+    style: str = "Modern"
+    finish: str = "Matte"
+    custom_prompt: Optional[str] = ""
+
+
 class GenerateRequest(BaseModel):
     # Exactly one of image_base64 / sample_id must be given.
     image_base64: Optional[str] = None

@@ -49,6 +49,19 @@ export async function analyzeCNN(payload, category = 'Chair') {
   return await res.json();
 }
 
+export async function renderSpec(payload) {
+  const res = await fetch(`${API_BASE}/spec-render`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Spec render failed' }));
+    throw new Error(err.detail || 'Spec render error');
+  }
+  return await res.json();
+}
+
 export async function generateFurniture(payload, onProgress) {
   const res = await fetch(`${API_BASE}/generate`, {
     method: 'POST',

@@ -1,15 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import SketchUploader from './SketchUploader';
 import CustomizerPanel from './CustomizerPanel';
 import ResultsViewer from './ResultsViewer';
 import AIInspectorModal from './AIInspectorModal';
-import { generateFurniture } from '../services/api';
+import { generateFurniture, renderSpec } from '../services/api';
+import { SAMPLE_SKETCHES } from '../utils/presets';
 
 export default function Studio({ selectedPresetId }) {
   // Image & OpenCV states
-  const [selectedImage, setSelectedImage] = useState(null);
-  const [selectedSampleId, setSelectedSampleId] = useState(selectedPresetId || null);
+  const initialPreset = selectedPresetId || 'chair';
+  const [selectedImage, setSelectedImage] = useState(`/sample_sketches/${initialPreset}_sketch.png`);
+  const [selectedSampleId, setSelectedSampleId] = useState(initialPreset);
   const [preprocessedData, setPreprocessedData] = useState(null);
   const [lowThresh, setLowThresh] = useState(100);
   const [highThresh, setHighThresh] = useState(200);
@@ -32,11 +34,92 @@ export default function Studio({ selectedPresetId }) {
   // Results & Execution states
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationJob, setGenerationJob] = useState(null);
-  const [resultData, setResultData] = useState(null);
+  const [resultData, setResultData] = useState({
+    id: 'spec_chair_wood_warm_walnut_modern_matte',
+    category: 'Chair',
+    material: 'Wood',
+    color: 'Warm Walnut',
+    style: 'Modern',
+    finish: 'Matte',
+    result_image_url: '/outputs/spec_chair_wood_warm_walnut_modern_matte.png',
+    primary_image_url: '/outputs/spec_chair_wood_warm_walnut_modern_matte.png',
+    original_image_url: '/sample_sketches/chair_sketch.png',
+    preprocessed_edge_url: '/outputs/edge_chair.png',
+    execution_time: 0.02,
+    pipeline_mode: 'FurnForge Photoreal Studio Engine (BRDF Material Synthesis)',
+    variations: [
+      {
+        variation_index: 0,
+        image_url: '/outputs/spec_chair_wood_warm_walnut_modern_matte.png',
+        style_variant: 'Photoreal Modern Wood (Matte)',
+        seed: 42
+      }
+    ]
+  });
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  // Handle Generate Request (accepts explicit overrides so quick tweaks never read stale React state)
+  // Track if user explicitly uploaded an image from disk vs sample preset
+  const isCustomUploadRef = useRef(false);
+
+  // 1. Auto-initialize default sample sketch on mount so studio is never empty/dead
+  useEffect(() => {
+    if (!selectedPresetId) return;
+    setSelectedSampleId(selectedPresetId);
+    isCustomUploadRef.current = false;
+    const preset = SAMPLE_SKETCHES.find((s) => s.id === selectedPresetId);
+    if (preset && preset.category) {
+      setCategory(preset.category);
+    }
+    setSelectedImage(`/sample_sketches/${selectedPresetId}_sketch.png`);
+  }, [selectedPresetId]);
+
+  // 2. Synchronize Category change with Sample Sketch if using presets
+  const handleCategoryChange = (newCategory) => {
+    setCategory(newCategory);
+    if (!isCustomUploadRef.current) {
+      const newSampleId = newCategory.toLowerCase();
+      setSelectedSampleId(newSampleId);
+      setSelectedImage(`/sample_sketches/${newSampleId}_sketch.png`);
+    }
+  };
+
+  // 3. Reactive Specification Engine:
+  // Whenever student selects ANY option (Category, Material, Color, Style, Finish):
+  // Immediately render/synthesize the response image matching that exact selected option!
+  useEffect(() => {
+    let active = true;
+    const timer = setTimeout(async () => {
+      try {
+        const spec = await renderSpec({
+          category,
+          material,
+          color,
+          style,
+          finish,
+          custom_prompt: customPrompt
+        });
+        if (active) {
+          setResultData((prev) => ({
+            ...spec,
+            original_image_url: selectedImage || `/sample_sketches/${category.toLowerCase()}_sketch.png`,
+            preprocessed_edge_url: spec.preprocessed_edge_url || `/outputs/edge_${category.toLowerCase()}.png`,
+            // Preserve CNN analysis if available
+            cnn_features: spec.cnn_features || preprocessedData?.cnn_features || prev?.cnn_features || null
+          }));
+        }
+      } catch (err) {
+        console.warn('Reactive spec render error:', err);
+      }
+    }, 30);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [category, material, color, style, finish]);
+
+  // Handle Full Deep Generative Diffusion (User clicks 'Forge Photoreal Furniture')
   const handleGenerate = async (overrides = null) => {
     const ov = overrides && !overrides.nativeEvent ? overrides : {};
     if (!selectedImage && !selectedSampleId) {
@@ -47,7 +130,6 @@ export default function Studio({ selectedPresetId }) {
     try {
       setIsGenerating(true);
       setErrorMessage('');
-      setResultData(null);
       setGenerationJob({ message: 'Submitting sketch to diffusion pipeline...', progress: 0.05 });
 
       const activeCategory = ov.category ?? category;
@@ -81,7 +163,7 @@ export default function Studio({ selectedPresetId }) {
       });
       setResultData(response);
 
-      // Trigger subtle celebration
+      // Trigger celebration
       try {
         confetti({
           particleCount: 40,
@@ -90,7 +172,7 @@ export default function Studio({ selectedPresetId }) {
           colors: ['#8B5A2B', '#D4A373', '#1A1A1E']
         });
       } catch (e) {
-        // ignore if confetti fails
+        // ignore
       }
     } catch (err) {
       console.error('Generation error:', err);
@@ -119,6 +201,12 @@ export default function Studio({ selectedPresetId }) {
     handleGenerate(ov);
   };
 
+  const handleCustomImageUpload = (imgData) => {
+    isCustomUploadRef.current = true;
+    setSelectedImage(imgData);
+    setSelectedSampleId(null);
+  };
+
   return (
     <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-in fade-in duration-300">
       {/* Workspace Header */}
@@ -127,7 +215,7 @@ export default function Studio({ selectedPresetId }) {
           <span className="text-xs font-bold uppercase tracking-wider text-[#8B5A2B]">Interactive Workspace</span>
           <h2 className="text-3xl font-bold text-[#1A1A1E]">AI Furniture Studio</h2>
           <p className="text-xs text-[#78716C] mt-1">
-            Conditioned generation pipeline preserving your hand-drawn outlines through OpenCV and ControlNet.
+            Real-time material & palette specification conditioned on OpenCV Canny and ControlNet geometric boundaries.
           </p>
         </div>
 
@@ -147,15 +235,21 @@ export default function Studio({ selectedPresetId }) {
         </div>
       )}
 
-      {/* Main Studio Grid */}
+      {/* Main Studio Grid: Side-by-Side Dual Column */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Left Column: Sketch Uploader & OpenCV Inspector (5 cols) */}
-        <div className="lg:col-span-5 space-y-6">
+        {/* Left Column: Sketch Input (Step 1) & Customizer Controls (Step 2) */}
+        <div className="lg:col-span-6 space-y-6">
           <SketchUploader
             selectedImage={selectedImage}
-            setSelectedImage={setSelectedImage}
+            setSelectedImage={handleCustomImageUpload}
             selectedSampleId={selectedSampleId}
-            setSelectedSampleId={setSelectedSampleId}
+            setSelectedSampleId={(id) => {
+              isCustomUploadRef.current = false;
+              setSelectedSampleId(id);
+              if (id) {
+                setSelectedImage(`/sample_sketches/${id}_sketch.png`);
+              }
+            }}
             preprocessedData={preprocessedData}
             setPreprocessedData={setPreprocessedData}
             lowThresh={lowThresh}
@@ -163,16 +257,12 @@ export default function Studio({ selectedPresetId }) {
             highThresh={highThresh}
             setHighThresh={setHighThresh}
             category={category}
-            setCategory={setCategory}
+            setCategory={handleCategoryChange}
           />
-        </div>
 
-        {/* Center/Right Column: Customizer & Results (7 cols) */}
-        <div className="lg:col-span-7 space-y-8">
-          {/* Customizer Controls */}
           <CustomizerPanel
             category={category}
-            setCategory={setCategory}
+            setCategory={handleCategoryChange}
             material={material}
             setMaterial={setMaterial}
             color={color}
@@ -197,8 +287,10 @@ export default function Studio({ selectedPresetId }) {
             isGenerating={isGenerating}
             hasImage={Boolean(selectedImage || selectedSampleId)}
           />
+        </div>
 
-          {/* Render Output / Results Viewer */}
+        {/* Right Column: Live Photoreal Response (Step 3) - STICKY so it's always beside the options! */}
+        <div className="lg:col-span-6 sticky top-20 self-start space-y-6">
           <ResultsViewer
             resultData={resultData}
             isGenerating={isGenerating}
@@ -220,4 +312,3 @@ export default function Studio({ selectedPresetId }) {
     </section>
   );
 }
-

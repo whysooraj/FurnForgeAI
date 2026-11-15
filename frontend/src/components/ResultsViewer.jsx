@@ -3,6 +3,7 @@ import {
   Download, RefreshCw, Eye, Sparkles, Sliders, Layers, 
   CheckCircle2, Info, ArrowLeftRight, Share2, Maximize2 
 } from 'lucide-react';
+import { COLORS } from '../utils/presets';
 
 export default function ResultsViewer({
   resultData,
@@ -122,21 +123,32 @@ export default function ResultsViewer({
     document.body.removeChild(link);
   };
 
+  const currentColorHex = COLORS.find((c) => c.name === resultData.color)?.hex || '#8B5A2B';
+
   return (
     <div className="bg-white rounded-3xl p-6 sm:p-7 border border-[#E8E2D5] shadow-xs space-y-6">
       {/* Top Bar with Mode Controls & Action Buttons */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-[#F0ECE1] gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
               Photoreal Render Generated
             </span>
             <span className="text-[11px] text-[#78716C]">
               in {resultData.execution_time}s
             </span>
           </div>
-          <h3 className="text-xl font-bold text-[#1A1A1E] mt-1">
-            {resultData.category} • {resultData.material} ({resultData.style})
+          <h3 className="text-xl font-bold text-[#1A1A1E] mt-1 flex flex-wrap items-center gap-2">
+            <span>{resultData.category}</span>
+            <span className="text-[#8B5A2B]">•</span>
+            <span>{resultData.material}</span>
+            <span className="text-[#8B5A2B]">•</span>
+            <span className="inline-flex items-center gap-1.5 text-base font-semibold text-[#555]">
+              <span className="w-3.5 h-3.5 rounded-full border border-black/20 shadow-xs inline-block" style={{ backgroundColor: currentColorHex }} />
+              {resultData.color}
+            </span>
+            <span className="text-xs font-normal text-[#888]">({resultData.style}, {resultData.finish})</span>
           </h3>
         </div>
 
