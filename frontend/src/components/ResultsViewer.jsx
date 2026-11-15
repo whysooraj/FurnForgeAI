@@ -1,9 +1,10 @@
 import React, { useState, useRef } from 'react';
 import { 
   Download, RefreshCw, Eye, Sparkles, Sliders, Layers, 
-  CheckCircle2, Info, ArrowLeftRight, Share2, Maximize2 
+  CheckCircle2, Info, ArrowLeftRight, Share2, Maximize2, Box 
 } from 'lucide-react';
 import { COLORS } from '../utils/presets';
+import ModelViewer3D from './ModelViewer3D';
 
 export default function ResultsViewer({
   resultData,
@@ -184,11 +185,34 @@ export default function ResultsViewer({
           >
             OpenCV Edges
           </button>
+          <button
+            onClick={() => setViewMode('3d')}
+            className={`px-3.5 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 ${
+              viewMode === '3d'
+                ? 'bg-[#8B5A2B] text-white shadow-xs font-semibold'
+                : 'text-[#5C3818] hover:text-[#1A1A1E] bg-[#FAF8F5] border border-[#E0D7C6]/60 font-semibold'
+            }`}
+          >
+            <Box className="w-3.5 h-3.5" />
+            <span>3D Model</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+          </button>
         </div>
       </div>
 
       {/* Main Interactive Canvas Area */}
       <div>
+        {viewMode === '3d' && (
+          <ModelViewer3D
+            category={resultData.category}
+            material={resultData.material}
+            color={resultData.color}
+            style={resultData.style}
+            finish={resultData.finish}
+            rawSketchUrl={sketchImg}
+          />
+        )}
+
         {viewMode === 'slider' && (
           <div
             ref={sliderRef}
@@ -329,13 +353,23 @@ export default function ResultsViewer({
           </button>
         </div>
 
-        <button
-          onClick={onOpenInspector}
-          className="px-3.5 py-2.5 rounded-xl bg-[#FAF8F5] hover:bg-[#F2ECE1] text-[#5C3818] border border-[#D5C7B0] text-xs font-semibold flex items-center gap-1.5 transition-all"
-        >
-          <Info className="w-3.5 h-3.5 text-[#8B5A2B]" />
-          <span>AI Architecture Inspector</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setViewMode('3d')}
+            className="px-3.5 py-2.5 rounded-xl bg-[#FAF8F5] hover:bg-[#F2ECE1] text-[#5C3818] border border-[#D5C7B0] text-xs font-semibold flex items-center gap-1.5 transition-all shadow-2xs"
+          >
+            <Box className="w-3.5 h-3.5 text-[#8B5A2B]" />
+            <span>View 3D Model</span>
+          </button>
+
+          <button
+            onClick={onOpenInspector}
+            className="px-3.5 py-2.5 rounded-xl bg-[#FAF8F5] hover:bg-[#F2ECE1] text-[#5C3818] border border-[#D5C7B0] text-xs font-semibold flex items-center gap-1.5 transition-all"
+          >
+            <Info className="w-3.5 h-3.5 text-[#8B5A2B]" />
+            <span>AI Architecture Inspector</span>
+          </button>
+        </div>
       </div>
     </div>
   );
