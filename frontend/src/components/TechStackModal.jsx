@@ -46,8 +46,8 @@ export default function TechStackModal({ isOpen, onClose }) {
               <h4 className="text-sm font-bold text-[#1A1A1E]">1. Computer Vision (OpenCV) Preprocessing</h4>
               <p className="text-[#666] leading-relaxed">
                 Uploaded sketches undergo <strong>bilateral filtering</strong> to smooth paper grain while retaining sharp edges. 
-                Next, <strong>Canny edge detection</strong> computes gradient magnitudes $G = \sqrt{G_x^2 + G_y^2}$ and angles $\theta = \arctan(G_y/G_x)$, followed by non-maximum suppression and hysteresis thresholding ($T_{low}, T_{high}$). 
-                Images are padded to $512 \times 512$ with aspect-ratio preservation to prevent structural distortion.
+                Next, <strong>Canny edge detection</strong> computes gradient magnitudes G = √(G_x² + G_y²) and angles θ = arctan(G_y/G_x), followed by non-maximum suppression and hysteresis thresholding (T_low, T_high). 
+                Images are padded to 512 × 512 with aspect-ratio preservation to prevent structural distortion.
               </p>
             </div>
           </div>
@@ -60,7 +60,7 @@ export default function TechStackModal({ isOpen, onClose }) {
             <div className="space-y-1 text-xs">
               <h4 className="text-sm font-bold text-[#1A1A1E]">2. Convolutional Neural Networks (CNN) Topological Analysis</h4>
               <p className="text-[#666] leading-relaxed">
-                A pretrained deep convolutional backbone (ResNet-18 / MobileNet) extracts dense spatial feature representations $\mathbf{f} \in \mathbb{R}^{512}$. 
+                A pretrained deep convolutional backbone (ResNet-18 / MobileNet) extracts dense spatial feature representations f ∈ ℝ⁵¹². 
                 The pipeline computes lateral symmetry indices, aspect ratios, and Hu Moments to evaluate category probability distributions (Chair, Table, Sofa, Bed, Cabinet) and calibrate prompt weighting.
               </p>
             </div>
@@ -74,8 +74,8 @@ export default function TechStackModal({ isOpen, onClose }) {
             <div className="space-y-1 text-xs">
               <h4 className="text-sm font-bold text-[#1A1A1E]">3. Latent Diffusion Models (Stable Diffusion)</h4>
               <p className="text-[#666] leading-relaxed">
-                Operates in a compressed latent space via a Variational Autoencoder (VAE) $\mathcal{E}$ and $\mathcal{D}$. 
-                The reverse diffusion process progressively removes Gaussian noise $\epsilon_t \sim \mathcal{N}(0, \mathbf{I})$ using a U-Net denoiser conditioned on text cross-attention embeddings, synthesizing physically based lighting and textures.
+                Operates in a compressed latent space via a Variational Autoencoder (VAE) encoder and decoder. 
+                The reverse diffusion process progressively removes Gaussian noise ε_t ~ N(0, I) using a U-Net denoiser conditioned on text cross-attention embeddings, synthesizing physically based lighting and textures.
               </p>
             </div>
           </div>

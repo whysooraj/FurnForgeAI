@@ -88,7 +88,7 @@ export default function AIInspectorModal({ isOpen, onClose, data }) {
             {/* Category Prior Probability Distribution */}
             <div className="space-y-2">
               <span className="text-[11px] font-semibold text-[#555] block">
-                Category Probability Vector $\mathbf{p} \in \mathbb{R}^5$
+                Category Probability Vector p ∈ ℝ⁵ (5-Class Prior Distribution)
               </span>
               <div className="space-y-1.5">
                 {Object.entries(scores).map(([cat, score]) => (
