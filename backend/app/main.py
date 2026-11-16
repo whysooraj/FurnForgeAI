@@ -20,7 +20,6 @@ from typing import Optional
 import cv2
 import numpy as np
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from PIL import Image
@@ -45,7 +44,6 @@ from app.models.schemas import GenerateRequest, PreprocessRequest, SpecRenderReq
 from app.pipeline.cnn_extractor import CNNFeatureExtractor
 from app.pipeline.cv_preprocessor import OpenCVPreprocessor
 from app.pipeline.diffusion_engine import DiffusionEngine
-from app.pipeline.mesh_generator import generate_furniture_3d_mesh
 from app.pipeline.photoreal_renderer import render_specification
 from app.pipeline.prompt_builder import build_prompt
 
@@ -213,43 +211,7 @@ def spec_render(req: SpecRenderRequest):
             res["cnn_features"] = features
     except Exception as e:
         logger.warning("CNN analysis during spec render: %s", e)
-    # Generate 3D polygonal mesh matching this exact specification
-    try:
-        obj_p, mtl_p = generate_furniture_3d_mesh(
-            category=req.category,
-            material=req.material,
-            color=req.color,
-            style=req.style,
-            finish=req.finish,
-        )
-        res["model_3d_url"] = f"/outputs/{obj_p.name}"
-        res["model_3d_mtl_url"] = f"/outputs/{mtl_p.name}"
-    except Exception as e:
-        logger.warning("3D mesh generation error during spec render: %s", e)
-
     return res
-
-
-@app.get("/api/model-3d")
-def download_model_3d(
-    category: str = "Chair",
-    material: str = "Wood",
-    color: str = "Warm Walnut",
-    style: str = "Modern",
-    finish: str = "Matte",
-    format: str = "obj",
-):
-    """Generate and return 3D model files (.obj or .mtl)."""
-    obj_p, mtl_p = generate_furniture_3d_mesh(
-        category=category,
-        material=material,
-        color=color,
-        style=style,
-        finish=finish,
-    )
-    if format == "mtl":
-        return FileResponse(str(mtl_p), media_type="text/plain", filename=mtl_p.name)
-    return FileResponse(str(obj_p), media_type="text/plain", filename=obj_p.name)
 
 
 @app.post("/api/generate", status_code=202)

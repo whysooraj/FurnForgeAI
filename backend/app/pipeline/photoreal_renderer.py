@@ -96,6 +96,15 @@ def render_specification(
         mask_img = cv2.imread(str(base_info["mask"]), cv2.IMREAD_GRAYSCALE)
 
         if render_img is None or mask_img is None:
+            # Check backend/sample_sketches fallback
+            sample_base = BASE_DIR / "sample_sketches" / f"base_{cat_key}.png"
+            sample_mask = BASE_DIR / "sample_sketches" / f"mask_{cat_key}.png"
+            if sample_base.exists():
+                render_img = cv2.imread(str(sample_base))
+            if sample_mask.exists():
+                mask_img = cv2.imread(str(sample_mask), cv2.IMREAD_GRAYSCALE)
+
+        if render_img is None or mask_img is None:
             # Fallback if file missing
             render_img = np.ones((512, 512, 3), dtype=np.uint8) * 240
             mask_img = np.ones((512, 512), dtype=np.uint8) * 255
