@@ -120,8 +120,10 @@ class CNNFeatureExtractor:
         rgb = cv2.cvtColor(sketch_bgr, cv2.COLOR_BGR2RGB)
         tensor = self.preprocess(Image.fromarray(rgb)).unsqueeze(0)  # 1x3x224x224
 
-        with self._lock:  # hooks store state on the instance -> serialize
+        with self._lock, torch.enable_grad():  # hooks store state on the instance -> serialize
             self.model.zero_grad(set_to_none=True)
+            self._activations = None
+            self._gradients = None
             tensor.requires_grad_(True)
             logits = self.model(tensor)                    # 1x1000
             probs = torch.softmax(logits, dim=1)[0]
@@ -132,12 +134,18 @@ class CNNFeatureExtractor:
             predicted = max(group_probs, key=group_probs.get)
 
             # Grad-CAM for the predicted furniture category.
-            score = logits[0, self.group_indices[predicted]].sum()
-            score.backward()
-            acts = self._activations.detach()[0]           # C x h x w
-            grads = self._gradients.detach()[0]            # C x h x w
-            weights = grads.mean(dim=(1, 2))               # C
-            cam = torch.relu((weights[:, None, None] * acts).sum(0)).cpu().numpy()
+            target_indices = self.group_indices.get(predicted, [])
+            if target_indices:
+                score = logits[0, target_indices].sum()
+                score.backward()
+
+            acts = self._activations.detach()[0] if self._activations is not None else torch.zeros((2048, 7, 7))
+            if self._gradients is not None:
+                grads = self._gradients.detach()[0]
+                weights = grads.mean(dim=(1, 2))
+                cam = torch.relu((weights[:, None, None] * acts).sum(0)).cpu().numpy()
+            else:
+                cam = torch.relu(acts.mean(0)).cpu().numpy()
 
             # Global-average-pooled embedding (input of the final FC layer).
             embedding = acts.mean(dim=(1, 2)).cpu().numpy()

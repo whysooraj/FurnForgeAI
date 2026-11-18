@@ -199,25 +199,34 @@ def samples():
 @app.post("/api/preprocess")
 def preprocess(req: PreprocessRequest):
     """OpenCV preprocessing + CNN analysis, used for the live preview in the studio."""
-    bgr = _decode_upload(req.image_base64)
-    prep = OpenCVPreprocessor.process_sketch(
-        bgr, low_threshold=req.low_threshold, high_threshold=req.high_threshold,
-        blur_kernel=req.blur_kernel if req.blur_kernel % 2 else req.blur_kernel + 1,
-        method=req.method,
-    )
-    features = cnn.analyze(prep["padded_bgr"], prep["edge_map"]) if cnn.ready else None
-    cond_b64 = prep["base64_scribble_map"] if DEFAULT_CONTROLNET == "scribble" else prep["base64_edge_map"]
-    return {
-        "edge_map_base64": cond_b64,
-        "scribble_map_base64": prep["base64_scribble_map"],
-        "display_sketch_base64": prep["base64_display_sketch"],
-        "edge_density_percent": prep["edge_density_percent"],
-        "contour_count": prep["contour_count"],
-        "cnn_features": features,
-        "cnn_heatmap_base64": features.get("b64_heatmap") if features else None,
-        "pixel_metrics": features.get("pixel_metrics") if features else None,
-        "cnn_error": None if cnn.ready else cnn.error,
-    }
+    try:
+        bgr = _decode_upload(req.image_base64)
+        prep = OpenCVPreprocessor.process_sketch(
+            bgr, low_threshold=req.low_threshold, high_threshold=req.high_threshold,
+            blur_kernel=req.blur_kernel if req.blur_kernel % 2 else req.blur_kernel + 1,
+            method=req.method,
+        )
+        features = None
+        if cnn.ready:
+            try:
+                features = cnn.analyze(prep["padded_bgr"], prep["edge_map"])
+            except Exception as cnn_err:
+                logger.warning("CNN analyze non-fatal error: %s", cnn_err)
+        cond_b64 = prep["base64_scribble_map"] if DEFAULT_CONTROLNET == "scribble" else prep["base64_edge_map"]
+        return {
+            "edge_map_base64": cond_b64,
+            "scribble_map_base64": prep["base64_scribble_map"],
+            "display_sketch_base64": prep["base64_display_sketch"],
+            "edge_density_percent": prep["edge_density_percent"],
+            "contour_count": prep["contour_count"],
+            "cnn_features": features,
+            "cnn_heatmap_base64": features.get("b64_heatmap") if features else None,
+            "pixel_metrics": features.get("pixel_metrics") if features else None,
+            "cnn_error": None if cnn.ready else cnn.error,
+        }
+    except Exception as exc:
+        logger.exception("Preprocess critical error: %s", exc)
+        raise HTTPException(status_code=500, detail=f"Preprocessing error: {str(exc)}")
 
 
 @app.post("/api/spec-render")
