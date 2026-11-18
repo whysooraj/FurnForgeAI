@@ -1,4 +1,46 @@
-const API_BASE = '/api';
+export const BACKEND_URL = (import.meta.env.VITE_BACKEND_URL || '').replace(/\/+$/, '');
+export const API_BASE = BACKEND_URL ? `${BACKEND_URL}/api` : '/api';
+
+export function resolveAssetUrl(url) {
+  if (!url || typeof url !== 'string') return url;
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:') || url.startsWith('blob:')) {
+    return url;
+  }
+  const cleanPath = url.startsWith('/') ? url : `/${url}`;
+  return BACKEND_URL ? `${BACKEND_URL}${cleanPath}` : cleanPath;
+}
+
+const URL_KEYS = new Set([
+  'image_url',
+  'primary_image_url',
+  'result_image_url',
+  'original_image_url',
+  'preprocessed_edge_url',
+  'sketch_url',
+  'depth_map_url',
+  'heatmap_url',
+  'glb_url',
+  'gltf_url',
+  'obj_url',
+  'texture_url',
+  'url'
+]);
+
+export function normalizeUrls(data) {
+  if (!data || typeof data !== 'object') return data;
+  if (Array.isArray(data)) {
+    return data.map(normalizeUrls);
+  }
+  const result = { ...data };
+  for (const [key, value] of Object.entries(result)) {
+    if (typeof value === 'string' && URL_KEYS.has(key)) {
+      result[key] = resolveAssetUrl(value);
+    } else if (typeof value === 'object' && value !== null) {
+      result[key] = normalizeUrls(value);
+    }
+  }
+  return result;
+}
 
 export async function checkHealth() {
   try {
@@ -20,7 +62,8 @@ export async function triggerModelLoad() {
 export async function getSampleSketches() {
   const res = await fetch(`${API_BASE}/samples`);
   if (!res.ok) throw new Error('Failed to fetch samples');
-  return await res.json();
+  const data = await res.json();
+  return normalizeUrls(data);
 }
 
 export async function preprocessSketch(payload) {
@@ -33,7 +76,8 @@ export async function preprocessSketch(payload) {
     const err = await res.json().catch(() => ({ detail: 'Preprocessing failed' }));
     throw new Error(err.detail || 'Preprocessing error');
   }
-  return await res.json();
+  const data = await res.json();
+  return normalizeUrls(data);
 }
 
 export async function analyzeCNN(payload, category = 'Chair') {
@@ -46,7 +90,8 @@ export async function analyzeCNN(payload, category = 'Chair') {
     const err = await res.json().catch(() => ({ detail: 'CNN analysis failed' }));
     throw new Error(err.detail || 'CNN analysis error');
   }
-  return await res.json();
+  const data = await res.json();
+  return normalizeUrls(data);
 }
 
 export async function renderSpec(payload) {
@@ -59,7 +104,8 @@ export async function renderSpec(payload) {
     const err = await res.json().catch(() => ({ detail: 'Spec render failed' }));
     throw new Error(err.detail || 'Spec render error');
   }
-  return await res.json();
+  const data = await res.json();
+  return normalizeUrls(data);
 }
 
 export async function generateFurniture(payload, onProgress) {
@@ -76,7 +122,7 @@ export async function generateFurniture(payload, onProgress) {
 
   // If immediate sync response
   if (initData.status === 'completed' && (initData.primary_image_url || initData.result_image_url)) {
-    return initData;
+    return normalizeUrls(initData);
   }
 
   // If asynchronous job queue
@@ -89,11 +135,11 @@ export async function generateFurniture(payload, onProgress) {
       const job = await jobRes.json();
 
       if (onProgress) {
-        onProgress(job);
+        onProgress(normalizeUrls(job));
       }
 
       if (job.status === 'completed' && job.result) {
-        return job.result;
+        return normalizeUrls(job.result);
       }
       if (job.status === 'failed') {
         throw new Error(job.error || job.message || 'Generation failed');
@@ -101,7 +147,7 @@ export async function generateFurniture(payload, onProgress) {
     }
   }
 
-  return initData;
+  return normalizeUrls(initData);
 }
 
 export async function getGallery(category = null) {
@@ -110,13 +156,15 @@ export async function getGallery(category = null) {
     : `${API_BASE}/gallery`;
   const res = await fetch(url);
   if (!res.ok) throw new Error('Failed to load gallery');
-  return await res.json();
+  const data = await res.json();
+  return normalizeUrls(data);
 }
 
 export async function getGalleryItem(id) {
   const res = await fetch(`${API_BASE}/gallery/${id}`);
   if (!res.ok) throw new Error('Failed to load gallery item');
-  return await res.json();
+  const data = await res.json();
+  return normalizeUrls(data);
 }
 
 export async function deleteGalleryItem(id) {
@@ -137,7 +185,8 @@ export async function get3DStatus(generationId) {
     const err = await res.json().catch(() => ({ detail: 'Failed to check 3D status' }));
     throw new Error(typeof err.detail === 'string' ? err.detail : err.detail?.message || '3D status error');
   }
-  return await res.json();
+  const data = await res.json();
+  return normalizeUrls(data);
 }
 
 export async function generate3DModel(payload, onProgress) {
@@ -186,10 +235,10 @@ export async function generate3DModel(payload, onProgress) {
       transientErrors = 0;
       const job = await jobRes.json();
 
-      if (onProgress) onProgress(job);
+      if (onProgress) onProgress(normalizeUrls(job));
 
       if (job.status === 'completed' && job.result) {
-        return job.result;
+        return normalizeUrls(job.result);
       }
       if (job.status === 'failed') {
         throw new Error(job.error || job.message || '3D reconstruction failed');
@@ -197,7 +246,7 @@ export async function generate3DModel(payload, onProgress) {
     }
   }
 
-  return initData;
+  return normalizeUrls(initData);
 }
 
 export function get3DDownloadUrl(generationId, format = 'glb') {
