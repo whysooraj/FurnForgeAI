@@ -1,20 +1,8 @@
 {
   "rewrites": [
     {
-      "source": "/api/:path*",
-      "destination": "https://favourite-complement-present-provides.trycloudflare.com/api/:path*"
-    },
-    {
-      "source": "/outputs/:path*",
-      "destination": "https://favourite-complement-present-provides.trycloudflare.com/outputs/:path*"
-    },
-    {
-      "source": "/uploads/:path*",
-      "destination": "https://favourite-complement-present-provides.trycloudflare.com/uploads/:path*"
-    },
-    {
-      "source": "/sample_sketches/:path*",
-      "destination": "https://favourite-complement-present-provides.trycloudflare.com/sample_sketches/:path*"
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }
