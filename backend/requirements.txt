@@ -17,6 +17,7 @@ trimesh>=4.4.0
 einops>=0.7.0
 omegaconf>=2.3.0
 rembg>=2.0.50
+onnxruntime>=1.17.0
 scikit-image>=0.22.0
 moderngl>=5.10.0
 
