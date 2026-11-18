@@ -63,9 +63,10 @@ class Job:
 
 
 class JobManager:
-    def __init__(self) -> None:
+    def __init__(self, default_message: str = "Starting generation") -> None:
         self._jobs: Dict[str, Job] = {}
         self._queue: "queue.Queue[Job]" = queue.Queue()
+        self._default_message = default_message
         threading.Thread(target=self._worker, name="generation-worker", daemon=True).start()
 
     def submit(self, fn: Callable[[Job], Dict[str, Any]], total_units: int = 1) -> Job:
@@ -84,7 +85,7 @@ class JobManager:
     def _worker(self) -> None:
         while True:
             job = self._queue.get()
-            job.status, job.started_at, job.message = "running", time.time(), "Starting diffusion"
+            job.status, job.started_at, job.message = "running", time.time(), self._default_message
             try:
                 job.result = job.fn(job)
                 job.status, job.message = "completed", "Done"

@@ -75,9 +75,9 @@ app.mount("/sample_sketches", StaticFiles(directory=str(SAMPLE_DIR)), name="samp
 
 cnn = CNNFeatureExtractor()
 engine = DiffusionEngine()
-jobs = JobManager()
+jobs = JobManager(default_message="Starting diffusion iterations...")
 mesh3d = Mesh3DEngine()
-jobs_3d = JobManager()
+jobs_3d = JobManager(default_message="Initializing TripoSR 3D reconstruction...")
 
 SAMPLES = [
     {"id": "chair", "name": "Lounge chair", "category": "Chair"},
@@ -470,6 +470,8 @@ def generate_3d_model(req: Generate3DRequest):
         )
 
     def run_3d(job: Job) -> dict:
+        job.report(0, 5, 100, "Downloading & preparing TripoSR 3D AI weights...")
+
         def on_progress(step: int, total: int, message: str) -> None:
             job.report(0, step, total, message)
 
