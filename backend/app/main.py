@@ -417,12 +417,17 @@ def generate_3d_model(req: Generate3DRequest):
     Priority 2 Fallback: tencent/Hunyuan3D-2mini
     """
     item = db.get_by_id(req.generation_id)
+    img_path = req.image_url
+    if img_path and "://" in img_path:
+        from urllib.parse import urlparse
+        img_path = urlparse(img_path).path
+
     if not item:
-        if req.generation_id.startswith("spec_") and req.image_url and req.image_url.startswith("/outputs/spec_"):
+        if req.generation_id.startswith("spec_") and img_path and img_path.startswith("/outputs/spec_"):
             item = {
                 "id": req.generation_id,
-                "result_image_url": req.image_url,
-                "variations": [{"variation_index": 0, "image_url": req.image_url}],
+                "result_image_url": img_path,
+                "variations": [{"variation_index": 0, "image_url": img_path}],
                 "original_image_url": None,
                 "preprocessed_edge_url": None,
             }

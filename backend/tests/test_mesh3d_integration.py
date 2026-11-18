@@ -51,6 +51,12 @@ def test_photoreal_input_validation_rejects_sketch_and_edge_map():
     assert path.exists()
     assert url == record["result_image_url"]
 
+    # Support full public URLs (e.g. from Cloudflare tunnels or custom backend domains)
+    full_tunnel_url = f"https://requires-accurately-makeup-backup.trycloudflare.com{record['result_image_url']}"
+    path_full, url_full = resolve_photoreal_render_path(record, requested_image_url=full_tunnel_url)
+    assert path_full.exists()
+    assert url_full == record["result_image_url"]
+
     for forbidden in (
         record["original_image_url"],
         record["preprocessed_edge_url"],

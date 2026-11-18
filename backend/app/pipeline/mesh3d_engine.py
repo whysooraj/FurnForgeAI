@@ -193,11 +193,17 @@ def resolve_photoreal_render_path(
     Resolve and strictly validate the generated 2D photorealistic image on disk.
 
     Rejects sketches, ControlNet/OpenCV edge maps, and any path outside OUTPUT_DIR.
+    Accepts both relative paths (/outputs/...) and full public URLs (https://.../outputs/...).
     """
-    forbidden_urls = {
-        generation_record.get("original_image_url"),
-        generation_record.get("preprocessed_edge_url"),
-    }
+    def _clean_path(u: Optional[str]) -> Optional[str]:
+        if not u or not isinstance(u, str):
+            return None
+        cleaned = u.split("?", 1)[0].strip()
+        if "://" in cleaned:
+            from urllib.parse import urlparse
+            cleaned = urlparse(cleaned).path
+        return cleaned
+
     candidate_url = requested_image_url
     if not candidate_url:
         variations = generation_record.get("variations") or []
@@ -208,8 +214,13 @@ def resolve_photoreal_render_path(
     if not candidate_url:
         raise PhotorealInputError("Generation record does not contain a photoreal render URL.")
 
-    normalized = candidate_url.split("?", 1)[0].strip()
-    if normalized in forbidden_urls or "/sample_sketches/" in normalized or "/uploads/" in normalized:
+    normalized = _clean_path(candidate_url)
+    forbidden_urls = {
+        _clean_path(generation_record.get("original_image_url")),
+        _clean_path(generation_record.get("preprocessed_edge_url")),
+    }
+
+    if not normalized or normalized in forbidden_urls or "/sample_sketches/" in normalized or "/uploads/" in normalized:
         raise PhotorealInputError(
             "3D reconstruction requires the final generated photorealistic render, not a sketch or ControlNet edge map."
         )
@@ -220,10 +231,10 @@ def resolve_photoreal_render_path(
             f"Refusing non-photoreal input '{filename}'. Only generated photorealistic furniture renders are allowed."
         )
 
-    allowed_urls = {generation_record.get("result_image_url")}
+    allowed_urls = {_clean_path(generation_record.get("result_image_url"))}
     for var in generation_record.get("variations") or []:
         if var.get("image_url"):
-            allowed_urls.add(var["image_url"])
+            allowed_urls.add(_clean_path(var["image_url"]))
 
     if normalized not in allowed_urls or not normalized.startswith("/outputs/"):
         raise PhotorealInputError(
