@@ -2,19 +2,19 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://florence-texture-expansys-joseph.trycloudflare.com/api/:path*"
+      "destination": "https://favourite-complement-present-provides.trycloudflare.com/api/:path*"
     },
     {
       "source": "/outputs/:path*",
-      "destination": "https://florence-texture-expansys-joseph.trycloudflare.com/outputs/:path*"
+      "destination": "https://favourite-complement-present-provides.trycloudflare.com/outputs/:path*"
     },
     {
       "source": "/uploads/:path*",
-      "destination": "https://florence-texture-expansys-joseph.trycloudflare.com/uploads/:path*"
+      "destination": "https://favourite-complement-present-provides.trycloudflare.com/uploads/:path*"
     },
     {
       "source": "/sample_sketches/:path*",
-      "destination": "https://florence-texture-expansys-joseph.trycloudflare.com/sample_sketches/:path*"
+      "destination": "https://favourite-complement-present-provides.trycloudflare.com/sample_sketches/:path*"
     }
   ]
 }
