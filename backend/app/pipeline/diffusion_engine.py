@@ -80,6 +80,13 @@ class DiffusionEngine:
                 self.status = "not_loaded"
                 self.status_detail = "Temporarily unloaded to free memory for 3D reconstruction."
                 gc.collect()
+                try:
+                    import torch
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+                        torch.cuda.ipc_collect()
+                except Exception:
+                    pass
 
     def load(self) -> None:
         with self._load_lock:

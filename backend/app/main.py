@@ -476,10 +476,20 @@ def generate_3d_model(req: Generate3DRequest):
             job.report(0, step, total, message)
 
         unloaded_2d = False
-        if DEVICE == "cpu" and engine.status in ("loading", "ready"):
-            job.report(0, 3, 100, "Freeing 2D diffusion memory before 3D reconstruction")
+        if engine.status in ("loading", "ready"):
+            job.report(0, 3, 100, "Optimizing memory: releasing 2D diffusion pipeline for 3D...")
             engine.unload()
             unloaded_2d = True
+
+        import gc
+        gc.collect()
+        try:
+            import torch
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                torch.cuda.ipc_collect()
+        except Exception:
+            pass
 
         try:
             model_3d = mesh3d.reconstruct_from_image(
@@ -495,6 +505,14 @@ def generate_3d_model(req: Generate3DRequest):
             db.update_3d_model(req.generation_id, model_3d)
             return {"generation_id": req.generation_id, "model_3d": model_3d}
         finally:
+            try:
+                import torch
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+            except Exception:
+                pass
+            import gc
+            gc.collect()
             if unloaded_2d and PRELOAD_MODELS:
                 engine.load_async()
 
