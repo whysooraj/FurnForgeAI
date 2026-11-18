@@ -207,6 +207,15 @@ export default function Studio({ selectedPresetId }) {
     setSelectedSampleId(null);
   };
 
+  const handleSelectSamplePreset = (sample) => {
+    isCustomUploadRef.current = false;
+    setSelectedSampleId(sample.id);
+    if (sample.category) {
+      setCategory(sample.category);
+    }
+    setSelectedImage(sample.url || `/sample_sketches/${sample.id}_sketch.png`);
+  };
+
   const handleModelUpdated = (genId, generatedModel) => {
     setResultData((prev) => (prev && prev.id === genId ? { ...prev, model_3d: generatedModel } : prev));
   };
@@ -247,13 +256,9 @@ export default function Studio({ selectedPresetId }) {
             selectedImage={selectedImage}
             setSelectedImage={handleCustomImageUpload}
             selectedSampleId={selectedSampleId}
-            setSelectedSampleId={(id) => {
-              isCustomUploadRef.current = false;
-              setSelectedSampleId(id);
-              if (id) {
-                setSelectedImage(`/sample_sketches/${id}_sketch.png`);
-              }
-            }}
+            setSelectedSampleId={setSelectedSampleId}
+            onCustomImageUpload={handleCustomImageUpload}
+            onSelectSamplePreset={handleSelectSamplePreset}
             preprocessedData={preprocessedData}
             setPreprocessedData={setPreprocessedData}
             lowThresh={lowThresh}

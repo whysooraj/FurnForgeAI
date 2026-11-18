@@ -15,13 +15,16 @@ export default function SketchUploader({
   highThresh,
   setHighThresh,
   category,
-  setCategory
+  setCategory,
+  onCustomImageUpload,
+  onSelectSamplePreset
 }) {
   const [dragOver, setDragOver] = useState(false);
   const [activeView, setActiveView] = useState('raw'); // 'raw', 'edge', 'cleaned'
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const fileInputRef = useRef(null);
+  const shouldAutoSyncCategoryRef = useRef(false);
 
   // Automatically trigger OpenCV preprocessing when image or thresholds change
   useEffect(() => {
@@ -42,6 +45,12 @@ export default function SketchUploader({
           method: 'canny'
         });
         setPreprocessedData(res);
+
+        // Auto-align category to detected furniture category from CNN sketch analysis
+        if (shouldAutoSyncCategoryRef.current && res?.cnn_features?.detected_category && setCategory) {
+          setCategory(res.cnn_features.detected_category);
+          shouldAutoSyncCategoryRef.current = false;
+        }
       } catch (err) {
         console.error('OpenCV error:', err);
       } finally {
@@ -69,8 +78,13 @@ export default function SketchUploader({
 
     const reader = new FileReader();
     reader.onload = (e) => {
-      setSelectedImage(e.target.result);
-      setSelectedSampleId(null);
+      shouldAutoSyncCategoryRef.current = true;
+      if (onCustomImageUpload) {
+        onCustomImageUpload(e.target.result);
+      } else {
+        setSelectedImage(e.target.result);
+        setSelectedSampleId?.(null);
+      }
     };
     reader.readAsDataURL(file);
   };
@@ -84,12 +98,15 @@ export default function SketchUploader({
   };
 
   const handleSelectSample = (sample) => {
-    setSelectedSampleId(sample.id);
-    if (sample.category && setCategory) {
-      setCategory(sample.category);
+    if (onSelectSamplePreset) {
+      onSelectSamplePreset(sample);
+    } else {
+      setSelectedSampleId?.(sample.id);
+      if (sample.category && setCategory) {
+        setCategory(sample.category);
+      }
+      setSelectedImage(sample.url);
     }
-    // Set directly for zero latency
-    setSelectedImage(sample.url);
   };
 
   const handleClear = () => {
@@ -325,6 +342,25 @@ export default function SketchUploader({
                   Detected detail: <strong>{cnnFeatures.detected_accessories.join(', ')}</strong>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Category Alignment Warning Callout */}
+          {cnnFeatures?.detected_category && cnnFeatures.detected_category !== category && (
+            <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-xl p-3 flex items-center justify-between gap-3 text-xs animate-in fade-in">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>
+                  Sketch matches <strong>{cnnFeatures.detected_category}</strong>, but studio is set to <strong>{category}</strong>. Align to prevent distorted hybrid renders.
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCategory(cnnFeatures.detected_category)}
+                className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs whitespace-nowrap transition-colors shadow-xs"
+              >
+                Switch to {cnnFeatures.detected_category}
+              </button>
             </div>
           )}
 
