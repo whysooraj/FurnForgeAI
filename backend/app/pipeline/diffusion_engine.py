@@ -20,6 +20,7 @@ with a clear error instead of returning a placeholder or stock image.
 """
 from __future__ import annotations
 
+import gc
 import logging
 import threading
 import time
@@ -65,6 +66,20 @@ class DiffusionEngine:
         if self.status in ("loading", "ready"):
             return
         threading.Thread(target=self.load, name="model-loader", daemon=True).start()
+
+    def unload(self) -> None:
+        """Release CPU/GPU diffusion weights to free memory for 3D reconstruction."""
+        with self._load_lock:
+            with self._lock:
+                self._pipe = None
+                self._img2img = None
+                self._quality_scheduler = None
+                self._lcm_scheduler = None
+                self._lora_fused = False
+                self.lcm_available = False
+                self.status = "not_loaded"
+                self.status_detail = "Temporarily unloaded to free memory for 3D reconstruction."
+                gc.collect()
 
     def load(self) -> None:
         with self._load_lock:

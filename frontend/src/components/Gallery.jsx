@@ -1,17 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Download, Eye, Trash2, Sparkles, Filter, Calendar, 
-  Layers, ArrowLeftRight, Check, X, RefreshCw 
+  Layers, ArrowLeftRight, Check, X, RefreshCw, Box, Camera 
 } from 'lucide-react';
 import { getGallery, deleteGalleryItem } from '../services/api';
 import { CATEGORIES } from '../utils/presets';
+import Model3DViewer from './Model3DViewer';
+import ViewInRoomModal from './ViewInRoomModal';
 
 export default function Gallery({ onSelectForStudio }) {
   const [items, setItems] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [isLoading, setIsLoading] = useState(true);
   const [activeModalItem, setActiveModalItem] = useState(null);
-  const [compareMode, setCompareMode] = useState(false);
+  const [modalTab, setModalTab] = useState('photoreal'); // 'photoreal' | 'compare' | '3d'
+  const [roomViewItem, setRoomViewItem] = useState(null);
 
   const fetchItems = async () => {
     try {
@@ -113,7 +116,7 @@ export default function Gallery({ onSelectForStudio }) {
               key={item.id}
               onClick={() => {
                 setActiveModalItem(item);
-                setCompareMode(false);
+                setModalTab('photoreal');
               }}
               className="group bg-white rounded-2xl overflow-hidden border border-[#E8E2D5] shadow-xs hover:shadow-lg hover:border-[#8B5A2B]/40 transition-all cursor-pointer flex flex-col"
             >
@@ -136,6 +139,7 @@ export default function Gallery({ onSelectForStudio }) {
                     onClick={(e) => {
                       e.stopPropagation();
                       setActiveModalItem(item);
+                      setModalTab('photoreal');
                     }}
                     className="w-9 h-9 rounded-full bg-white text-[#1A1A1E] flex items-center justify-center hover:scale-110 transition-transform shadow-md"
                     title="View Details"
@@ -202,28 +206,37 @@ export default function Gallery({ onSelectForStudio }) {
               </button>
             </div>
 
-            {/* View Mode Toggle */}
-            <div className="flex items-center justify-between bg-[#F5F2EB] p-1 rounded-xl text-xs">
+            {/* View Mode Toggle (3 Tabs) */}
+            <div className="flex items-center justify-between gap-1 bg-[#F5F2EB] p-1 rounded-xl text-xs">
               <button
-                onClick={() => setCompareMode(false)}
-                className={`flex-1 py-1.5 rounded-lg font-medium transition-all ${
-                  !compareMode ? 'bg-white text-[#1A1A1E] shadow-xs font-bold' : 'text-[#78716C]'
+                onClick={() => setModalTab('photoreal')}
+                className={`flex-1 py-1.5 px-2 rounded-lg font-medium transition-all ${
+                  modalTab === 'photoreal' ? 'bg-white text-[#1A1A1E] shadow-xs font-bold' : 'text-[#78716C] hover:text-[#1A1A1E]'
                 }`}
               >
                 Photoreal Render
               </button>
               <button
-                onClick={() => setCompareMode(true)}
-                className={`flex-1 py-1.5 rounded-lg font-medium transition-all ${
-                  compareMode ? 'bg-[#1A1A1E] text-white shadow-xs font-bold' : 'text-[#78716C]'
+                onClick={() => setModalTab('compare')}
+                className={`flex-1 py-1.5 px-2 rounded-lg font-medium transition-all ${
+                  modalTab === 'compare' ? 'bg-[#1A1A1E] text-white shadow-xs font-bold' : 'text-[#78716C] hover:text-[#1A1A1E]'
                 }`}
               >
-                Side-by-Side with Sketch & Edge Map
+                Sketch &amp; Edge Map
+              </button>
+              <button
+                onClick={() => setModalTab('3d')}
+                className={`flex-1 py-1.5 px-2 rounded-lg font-medium transition-all flex items-center justify-center gap-1.5 ${
+                  modalTab === '3d' ? 'bg-[#8B5A2B] text-white shadow-xs font-bold' : 'text-[#78716C] hover:text-[#1A1A1E]'
+                }`}
+              >
+                <Box className="w-3.5 h-3.5" />
+                <span>Interactive 3D Model</span>
               </button>
             </div>
 
-            {/* Images display */}
-            {!compareMode ? (
+            {/* Tab Content */}
+            {modalTab === 'photoreal' && (
               <div className="aspect-square max-h-[440px] mx-auto rounded-2xl overflow-hidden border border-[#E8E2D5] bg-[#FAF8F5] flex items-center justify-center p-2">
                 <img
                   src={activeModalItem.result_image_url}
@@ -231,7 +244,9 @@ export default function Gallery({ onSelectForStudio }) {
                   className="max-h-full max-w-full object-contain"
                 />
               </div>
-            ) : (
+            )}
+
+            {modalTab === 'compare' && (
               <div className="grid grid-cols-3 gap-3">
                 <div className="aspect-square rounded-xl overflow-hidden border border-[#E8E2D5] bg-white p-2 flex flex-col items-center justify-center">
                   <span className="text-[10px] font-bold text-[#78716C] mb-1">Sketch</span>
@@ -246,6 +261,18 @@ export default function Gallery({ onSelectForStudio }) {
                   <img src={activeModalItem.result_image_url} alt="Render" className="max-h-[85%] object-contain" />
                 </div>
               </div>
+            )}
+
+            {modalTab === '3d' && (
+              <Model3DViewer
+                key={activeModalItem.id}
+                item={activeModalItem}
+                onViewInRoom={() => setRoomViewItem(activeModalItem)}
+                onModelUpdated={(genId, generatedModel) => {
+                  setActiveModalItem((prev) => (prev && prev.id === genId ? { ...prev, model_3d: generatedModel } : prev));
+                  setItems((prev) => prev.map((it) => (it.id === genId ? { ...it, model_3d: generatedModel } : it)));
+                }}
+              />
             )}
 
             {/* Specs & Prompt */}
@@ -285,7 +312,14 @@ export default function Gallery({ onSelectForStudio }) {
                 <span>Delete Design</span>
               </button>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => setRoomViewItem(activeModalItem)}
+                  className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#8B5A2B] to-[#5C3818] hover:from-[#724821] hover:to-[#4A2D12] text-white text-xs font-semibold flex items-center gap-2 transition-all shadow-xs"
+                >
+                  <Camera className="w-3.5 h-3.5 text-amber-200" />
+                  <span>View in Your Room</span>
+                </button>
                 <button
                   onClick={(e) => handleDownload(e, activeModalItem.result_image_url, `furnforge-${activeModalItem.category.toLowerCase()}.png`)}
                   className="px-5 py-2.5 rounded-xl bg-[#1A1A1E] hover:bg-[#2C2C32] text-white text-xs font-semibold flex items-center gap-2 transition-all shadow-xs"
@@ -298,6 +332,17 @@ export default function Gallery({ onSelectForStudio }) {
           </div>
         </div>
       )}
+
+      <ViewInRoomModal
+        isOpen={Boolean(roomViewItem)}
+        onClose={() => setRoomViewItem(null)}
+        item={roomViewItem}
+        onModelUpdated={(genId, generatedModel) => {
+          setRoomViewItem((prev) => (prev && prev.id === genId ? { ...prev, model_3d: generatedModel } : prev));
+          setActiveModalItem((prev) => (prev && prev.id === genId ? { ...prev, model_3d: generatedModel } : prev));
+          setItems((prev) => prev.map((it) => (it.id === genId ? { ...it, model_3d: generatedModel } : it)));
+        }}
+      />
     </section>
   );
 }

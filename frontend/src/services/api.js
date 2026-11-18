@@ -124,3 +124,82 @@ export async function deleteGalleryItem(id) {
   if (!res.ok) throw new Error('Failed to delete item');
   return await res.json();
 }
+
+export async function get3DRequirements() {
+  const res = await fetch(`${API_BASE}/3d/requirements`);
+  if (!res.ok) throw new Error('Failed to check 3D GPU requirements');
+  return await res.json();
+}
+
+export async function get3DStatus(generationId) {
+  const res = await fetch(`${API_BASE}/3d/status/${encodeURIComponent(generationId)}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Failed to check 3D status' }));
+    throw new Error(typeof err.detail === 'string' ? err.detail : err.detail?.message || '3D status error');
+  }
+  return await res.json();
+}
+
+export async function generate3DModel(payload, onProgress) {
+  const res = await fetch(`${API_BASE}/3d/generate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: '3D model generation failed' }));
+    const detail = err.detail;
+    const message = typeof detail === 'string'
+      ? detail
+      : detail?.message || '3D model generation failed';
+    const error = new Error(message);
+    if (detail && typeof detail === 'object' && detail.compatibility) {
+      error.compatibility = detail.compatibility;
+    }
+    throw error;
+  }
+
+  const initData = await res.json();
+  if (initData.job_id) {
+    let transientErrors = 0;
+    while (true) {
+      await new Promise((r) => setTimeout(r, 1200));
+      let jobRes;
+      try {
+        jobRes = await fetch(`${API_BASE}/3d/jobs/${initData.job_id}`);
+      } catch (networkErr) {
+        transientErrors += 1;
+        if (transientErrors >= 4) {
+          throw new Error(
+            'Lost connection to the FurnForge AI backend on port 8005 while generating the 3D model.'
+          );
+        }
+        continue;
+      }
+      if (!jobRes.ok) {
+        if (jobRes.status === 404) {
+          throw new Error('3D job was interrupted because the backend restarted. Please try again.');
+        }
+        throw new Error('Failed to poll 3D reconstruction job');
+      }
+      transientErrors = 0;
+      const job = await jobRes.json();
+
+      if (onProgress) onProgress(job);
+
+      if (job.status === 'completed' && job.result) {
+        return job.result;
+      }
+      if (job.status === 'failed') {
+        throw new Error(job.error || job.message || '3D reconstruction failed');
+      }
+    }
+  }
+
+  return initData;
+}
+
+export function get3DDownloadUrl(generationId, format = 'glb') {
+  return `${API_BASE}/3d/download/${encodeURIComponent(generationId)}/${encodeURIComponent(format)}`;
+}

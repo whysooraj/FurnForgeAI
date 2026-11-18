@@ -1,0 +1,20 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://ict-infants-sussex-offshore.trycloudflare.com/api/:path*"
+    },
+    {
+      "source": "/outputs/:path*",
+      "destination": "https://ict-infants-sussex-offshore.trycloudflare.com/outputs/:path*"
+    },
+    {
+      "source": "/uploads/:path*",
+      "destination": "https://ict-infants-sussex-offshore.trycloudflare.com/uploads/:path*"
+    },
+    {
+      "source": "/sample_sketches/:path*",
+      "destination": "https://ict-infants-sussex-offshore.trycloudflare.com/sample_sketches/:path*"
+    }
+  ]
+}

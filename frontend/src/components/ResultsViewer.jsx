@@ -1,9 +1,11 @@
 import React, { useState, useRef } from 'react';
 import { 
   Download, RefreshCw, Eye, Sparkles, Sliders, Layers, 
-  CheckCircle2, Info, ArrowLeftRight, Share2, Maximize2 
+  CheckCircle2, Info, ArrowLeftRight, Share2, Maximize2, Box, Camera 
 } from 'lucide-react';
 import { COLORS } from '../utils/presets';
+import Model3DViewer from './Model3DViewer';
+import ViewInRoomModal from './ViewInRoomModal';
 
 export default function ResultsViewer({
   resultData,
@@ -12,9 +14,12 @@ export default function ResultsViewer({
   onRegenerate,
   onQuickTweak,
   onOpenInspector,
+  onModelUpdated,
   rawSketchUrl
 }) {
-  const [viewMode, setViewMode] = useState('slider'); // 'slider', 'sideBySide', 'edges'
+  const [viewMode, setViewMode] = useState('slider'); // 'slider', 'sideBySide', 'edges', '3d'
+  const [autoStart3DTrigger, setAutoStart3DTrigger] = useState(0);
+  const [isRoomViewOpen, setIsRoomViewOpen] = useState(false);
   const [activeVarIdx, setActiveVarIdx] = useState(0);
   const [sliderPos, setSliderPos] = useState(50);
   const [isDragging, setIsDragging] = useState(false);
@@ -153,7 +158,7 @@ export default function ResultsViewer({
         </div>
 
         {/* View Switcher Pills */}
-        <div className="flex items-center gap-1.5 bg-[#F5F2EB] p-1 rounded-xl text-xs">
+        <div className="flex flex-wrap items-center gap-1.5 bg-[#F5F2EB] p-1 rounded-xl text-xs">
           <button
             onClick={() => setViewMode('slider')}
             className={`px-3 py-1.5 rounded-lg font-medium transition-all ${
@@ -183,6 +188,25 @@ export default function ResultsViewer({
             }`}
           >
             OpenCV Edges
+          </button>
+          <button
+            onClick={() => setViewMode('3d')}
+            className={`px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 ${
+              viewMode === '3d'
+                ? 'bg-[#8B5A2B] text-white shadow-xs font-semibold'
+                : 'text-[#78716C] hover:text-[#1A1A1E]'
+            }`}
+          >
+            <Box className="w-3.5 h-3.5" />
+            <span>3D Model</span>
+          </button>
+          <button
+            onClick={() => setIsRoomViewOpen(true)}
+            className="px-3 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 bg-[#1A1A1E] hover:bg-[#2E2E35] text-white shadow-xs"
+            title="Open live camera and place 3D furniture in your room"
+          >
+            <Camera className="w-3.5 h-3.5 text-amber-300" />
+            <span>View in Room</span>
           </button>
         </div>
       </div>
@@ -268,7 +292,7 @@ export default function ResultsViewer({
           </div>
         )}
 
-        {viewMode === 'edges' && (
+        {viewMode !== '3d' && viewMode === 'edges' && (
           <div className="aspect-square max-h-[500px] mx-auto rounded-2xl overflow-hidden border border-[#1A1A1E] bg-black flex flex-col items-center justify-center p-4">
             <img
               src={resultData.preprocessed_edge_url}
@@ -280,6 +304,16 @@ export default function ResultsViewer({
             </div>
           </div>
         )}
+
+        <div className={viewMode === '3d' ? 'block' : 'hidden'}>
+          <Model3DViewer
+            key={`${resultData.id}-${currentActiveImage}`}
+            item={{ ...resultData, result_image_url: currentActiveImage }}
+            autoStartTrigger={autoStart3DTrigger}
+            onModelUpdated={onModelUpdated}
+            onViewInRoom={() => setIsRoomViewOpen(true)}
+          />
+        </div>
       </div>
 
       {/* Multiple Variations Strip (if > 1) */}
@@ -327,6 +361,25 @@ export default function ResultsViewer({
             <RefreshCw className="w-3.5 h-3.5 text-[#8B5A2B]" />
             <span>Regenerate Variation</span>
           </button>
+
+          <button
+            onClick={() => {
+              setViewMode('3d');
+              setAutoStart3DTrigger((n) => n + 1);
+            }}
+            className="px-4 py-2.5 rounded-xl bg-[#8B5A2B] hover:bg-[#724821] text-white text-xs font-semibold flex items-center gap-2 transition-all shadow-xs"
+          >
+            <Box className="w-3.5 h-3.5" />
+            <span>Create 3D Model</span>
+          </button>
+
+          <button
+            onClick={() => setIsRoomViewOpen(true)}
+            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#8B5A2B] to-[#5C3818] hover:from-[#724821] hover:to-[#4A2D12] text-white text-xs font-semibold flex items-center gap-2 transition-all shadow-xs"
+          >
+            <Camera className="w-3.5 h-3.5 text-amber-200" />
+            <span>View in Your Room</span>
+          </button>
         </div>
 
         <button
@@ -337,6 +390,14 @@ export default function ResultsViewer({
           <span>AI Architecture Inspector</span>
         </button>
       </div>
+
+      {/* Amazon / Flipkart style Live Camera AR Room View */}
+      <ViewInRoomModal
+        isOpen={isRoomViewOpen}
+        onClose={() => setIsRoomViewOpen(false)}
+        item={{ ...resultData, result_image_url: currentActiveImage }}
+        onModelUpdated={onModelUpdated}
+      />
     </div>
   );
 }

@@ -36,11 +36,13 @@ UPLOAD_DIR = BASE_DIR / "uploads"
 # Images written by the diffusion model + edge maps (model OUTPUT storage, used by
 # the gallery and download buttons). Nothing in here is ever used as a result source.
 OUTPUT_DIR = BASE_DIR / "outputs"
+# 3D meshes reconstructed by TripoSR / Hunyuan3D-2mini (.glb / .gltf / .obj + textures).
+MODEL_3D_DIR = OUTPUT_DIR / "models3d"
 # Optional example sketches (model INPUT) so the app can be tried without drawing.
 SAMPLE_DIR = BASE_DIR / "sample_sketches"
 DB_PATH = BASE_DIR / "app" / "database" / "furnforge.db"
 
-for _d in (UPLOAD_DIR, OUTPUT_DIR, SAMPLE_DIR, DB_PATH.parent):
+for _d in (UPLOAD_DIR, OUTPUT_DIR, MODEL_3D_DIR, SAMPLE_DIR, DB_PATH.parent):
     _d.mkdir(parents=True, exist_ok=True)
 
 # ---------------------------------------------------------------------------
@@ -73,6 +75,23 @@ PRELOAD_MODELS = _env_bool("PRELOAD_MODELS", True)
 
 # Pretrained CNN used for feature extraction / Grad-CAM.
 CNN_BACKBONE = os.getenv("CNN_BACKBONE", "resnet50")
+
+# ---------------------------------------------------------------------------
+# Image-to-3D Reconstruction (Priority 1: TripoSR, Priority 2 Fallback: Hunyuan3D-2mini)
+# ---------------------------------------------------------------------------
+TRIPOSR_MODEL = os.getenv("TRIPOSR_MODEL", "stabilityai/TripoSR")
+TRIPOSR_MC_RESOLUTION = int(os.getenv("TRIPOSR_MC_RESOLUTION", "160"))
+TRIPOSR_CHUNK_SIZE = int(os.getenv("TRIPOSR_CHUNK_SIZE", "4096"))
+TRIPOSR_FOREGROUND_RATIO = float(os.getenv("TRIPOSR_FOREGROUND_RATIO", "0.85"))
+TRIPOSR_BAKE_TEXTURE = _env_bool("TRIPOSR_BAKE_TEXTURE", True)
+TRIPOSR_TEXTURE_RESOLUTION = int(os.getenv("TRIPOSR_TEXTURE_RESOLUTION", "1024"))
+
+HUNYUAN3D_MODEL = os.getenv("HUNYUAN3D_MODEL", "tencent/Hunyuan3D-2mini")
+HUNYUAN3D_SUBFOLDER = os.getenv("HUNYUAN3D_SUBFOLDER", "hunyuan3d-dit-v2-mini")
+HUNYUAN3D_STEPS = int(os.getenv("HUNYUAN3D_STEPS", "30"))
+HUNYUAN3D_OCTREE_RES = int(os.getenv("HUNYUAN3D_OCTREE_RES", "380"))
+HUNYUAN3D_MIN_VRAM_GB = float(os.getenv("HUNYUAN3D_MIN_VRAM_GB", "6.0"))
+HUNYUAN3D_ENABLE_TEXTURE = _env_bool("HUNYUAN3D_ENABLE_TEXTURE", True)
 
 
 # ---------------------------------------------------------------------------

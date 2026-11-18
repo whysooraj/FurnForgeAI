@@ -10,8 +10,10 @@ Pipeline for every generation request:
 """
 import base64
 import binascii
+import json
 import logging
 import random
+import shutil
 import time
 import uuid
 from datetime import datetime
@@ -21,6 +23,7 @@ import cv2
 import numpy as np
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from PIL import Image
 
@@ -30,22 +33,31 @@ from app.config import (
     DEVICE,
     ENABLE_LCM,
     MAX_UPLOAD_MB,
+    MODEL_3D_DIR,
     OUTPUT_DIR,
     PRELOAD_MODELS,
     SAMPLE_DIR,
     SD_MODEL,
     CONTROLNET_MODELS,
     DEFAULT_CONTROLNET,
+    TRIPOSR_MODEL,
+    HUNYUAN3D_MODEL,
     UPLOAD_DIR,
 )
 from app.database.db import db
 from app.jobs import Job, JobManager
-from app.models.schemas import GenerateRequest, PreprocessRequest, SpecRenderRequest
+from app.models.schemas import Generate3DRequest, GenerateRequest, PreprocessRequest, SpecRenderRequest
 from app.pipeline.cnn_extractor import CNNFeatureExtractor
 from app.pipeline.cv_preprocessor import OpenCVPreprocessor
 from app.pipeline.diffusion_engine import DiffusionEngine
 from app.pipeline.photoreal_renderer import render_specification
 from app.pipeline.prompt_builder import build_prompt
+from app.pipeline.mesh3d_engine import (
+    Mesh3DEngine,
+    PhotorealInputError,
+    check_3d_capabilities,
+    resolve_photoreal_render_path,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s: %(message)s")
 logger = logging.getLogger("FurnForgeAI")
@@ -64,6 +76,8 @@ app.mount("/sample_sketches", StaticFiles(directory=str(SAMPLE_DIR)), name="samp
 cnn = CNNFeatureExtractor()
 engine = DiffusionEngine()
 jobs = JobManager()
+mesh3d = Mesh3DEngine()
+jobs_3d = JobManager()
 
 SAMPLES = [
     {"id": "chair", "name": "Lounge chair", "category": "Chair"},
@@ -136,6 +150,7 @@ def _model_status() -> dict:
 # --------------------------------------------------------------------------- routes
 @app.get("/api/health")
 def health():
+    caps_3d = check_3d_capabilities()
     return {
         "status": "ok",
         "app": APP_NAME,
@@ -143,6 +158,14 @@ def health():
         "device": DEVICE,
         "model": _model_status(),
         "cnn": {"ready": cnn.ready, "backbone": getattr(cnn, "backbone_name", None), "error": cnn.error},
+        "mesh3d": {
+            "primary_model": TRIPOSR_MODEL,
+            "fallback_model": HUNYUAN3D_MODEL,
+            "ready": caps_3d["ready"],
+            "cuda_available": caps_3d["cuda_available"],
+            "gpu_name": caps_3d["gpu_name"],
+            "vram_gb": caps_3d["vram_gb"],
+        },
         "queue_length": jobs.pending,
     }
 
@@ -220,9 +243,8 @@ def generate(req: GenerateRequest):
     Validate input, run OpenCV + CNN synchronously, then queue the diffusion job.
     Returns a job id; poll GET /api/jobs/{job_id} for progress and the result.
     """
-    if engine.status != "ready":
-        raise HTTPException(503, f"Generative model not ready ({engine.status}): {engine.status_detail}"
-                                 + (f" Error: {engine.error}" if engine.error else ""))
+    if engine.status == "error":
+        raise HTTPException(503, f"Generative model error: {engine.error or engine.status_detail}")
 
     raw_bgr, original_url = _load_input(req.image_base64, req.sample_id)
     if req.low_threshold >= req.high_threshold:
@@ -250,6 +272,12 @@ def generate(req: GenerateRequest):
     init_image = Image.fromarray(cv2.cvtColor(prep["padded_bgr"], cv2.COLOR_BGR2RGB))
 
     def run(job: Job) -> dict:
+        if engine.status != "ready":
+            job.report(0, 0, 1, "Loading Stable Diffusion 1.5 + ControlNet weights")
+            engine.load()
+            if engine.status != "ready":
+                raise RuntimeError(engine.error or engine.status_detail)
+
         t0 = time.time()
         variations = []
         for i in range(req.num_variations):
@@ -305,10 +333,215 @@ def generate(req: GenerateRequest):
 
 @app.get("/api/jobs/{job_id}")
 def job_status(job_id: str):
-    job = jobs.get(job_id)
+    job = jobs.get(job_id) or jobs_3d.get(job_id)
     if not job:
         raise HTTPException(404, "Job not found.")
     return job.to_dict()
+
+
+# --------------------------------------------------------------------------- 3D reconstruction (TripoSR -> Hunyuan3D-2mini)
+@app.get("/api/3d/requirements")
+def mesh3d_requirements():
+    """Report hardware and package readiness for TripoSR (Priority 1) and Hunyuan3D-2mini (Fallback)."""
+    return check_3d_capabilities()
+
+
+def _load_cached_3d_model(generation_id: str) -> Optional[dict]:
+    asset_dir = (MODEL_3D_DIR / generation_id).resolve()
+    if asset_dir.parent != MODEL_3D_DIR.resolve() or not asset_dir.exists():
+        return None
+    glb_path = asset_dir / "model.glb"
+    if not glb_path.exists():
+        return None
+    meta_path = asset_dir / "meta.json"
+    if meta_path.exists():
+        try:
+            return json.loads(meta_path.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    formats = ["glb"]
+    if (asset_dir / "gltf" / "model.gltf").exists() or (asset_dir / "model-gltf.zip").exists():
+        formats.append("gltf")
+    if (asset_dir / "obj" / "model.obj").exists() or (asset_dir / "model-obj.zip").exists():
+        formats.append("obj")
+    return {
+        "status": "ready",
+        "engine_used": "TripoSR",
+        "glb_url": f"/outputs/models3d/{generation_id}/model.glb",
+        "gltf_url": f"/api/3d/download/{generation_id}/gltf" if "gltf" in formats else None,
+        "obj_url": f"/api/3d/download/{generation_id}/obj" if "obj" in formats else None,
+        "supported_formats": formats,
+    }
+
+
+@app.get("/api/3d/status/{generation_id}")
+def mesh3d_status(generation_id: str):
+    item = db.get_by_id(generation_id)
+    if not item and not generation_id.startswith("spec_"):
+        raise HTTPException(404, "Design generation not found.")
+    model_3d = item.get("model_3d") if item else None
+    if not model_3d:
+        model_3d = _load_cached_3d_model(generation_id)
+    return {
+        "generation_id": generation_id,
+        "model_3d": model_3d,
+        "compatibility": check_3d_capabilities(),
+    }
+
+
+@app.post("/api/3d/generate", status_code=202)
+def generate_3d_model(req: Generate3DRequest):
+    """
+    Reconstruct an interactive 3D mesh from an existing FurnForge AI photorealistic 2D render.
+    Priority 1: stabilityai/TripoSR
+    Priority 2 Fallback: tencent/Hunyuan3D-2mini
+    """
+    item = db.get_by_id(req.generation_id)
+    if not item:
+        if req.generation_id.startswith("spec_") and req.image_url and req.image_url.startswith("/outputs/spec_"):
+            item = {
+                "id": req.generation_id,
+                "result_image_url": req.image_url,
+                "variations": [{"variation_index": 0, "image_url": req.image_url}],
+                "original_image_url": None,
+                "preprocessed_edge_url": None,
+            }
+        else:
+            raise HTTPException(404, f"Generation '{req.generation_id}' not found in gallery.")
+
+    try:
+        image_path, source_url = resolve_photoreal_render_path(
+            item,
+            requested_image_url=req.image_url,
+            variation_index=req.variation_index,
+        )
+    except PhotorealInputError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+    caps = check_3d_capabilities()
+    if req.model_preference == "hunyuan3d" and not caps["fallback"]["available"]:
+        raise HTTPException(
+            503,
+            detail={
+                "message": " ".join(caps["fallback"]["blocking_reasons"]),
+                "compatibility": caps,
+            },
+        )
+    if req.model_preference == "triposr" and not caps["primary"]["available"]:
+        raise HTTPException(
+            503,
+            detail={
+                "message": " ".join(caps["primary"]["blocking_reasons"]),
+                "compatibility": caps,
+            },
+        )
+    if not caps["ready"]:
+        raise HTTPException(
+            503,
+            detail={
+                "message": " ".join(caps["blocking_reasons"]),
+                "compatibility": caps,
+            },
+        )
+
+    def run_3d(job: Job) -> dict:
+        def on_progress(step: int, total: int, message: str) -> None:
+            job.report(0, step, total, message)
+
+        unloaded_2d = False
+        if DEVICE == "cpu" and engine.status in ("loading", "ready"):
+            job.report(0, 3, 100, "Freeing 2D diffusion memory before 3D reconstruction")
+            engine.unload()
+            unloaded_2d = True
+
+        try:
+            model_3d = mesh3d.reconstruct_from_image(
+                image_path=image_path,
+                generation_id=req.generation_id,
+                source_image_url=source_url,
+                model_preference=req.model_preference,
+                mc_resolution=req.mc_resolution,
+                bake_texture=req.bake_texture,
+                seed=req.seed,
+                progress=on_progress,
+            )
+            db.update_3d_model(req.generation_id, model_3d)
+            return {"generation_id": req.generation_id, "model_3d": model_3d}
+        finally:
+            if unloaded_2d and PRELOAD_MODELS:
+                engine.load_async()
+
+    job = jobs_3d.submit(run_3d, total_units=1)
+    return {
+        "job_id": job.id,
+        "generation_id": req.generation_id,
+        "source_image_url": source_url,
+        "primary_model": TRIPOSR_MODEL,
+        "fallback_model": HUNYUAN3D_MODEL,
+        "queue_position": jobs_3d.pending,
+    }
+
+
+@app.get("/api/3d/jobs/{job_id}")
+def mesh3d_job_status(job_id: str):
+    job = jobs_3d.get(job_id)
+    if not job:
+        raise HTTPException(404, "3D reconstruction job not found.")
+    return job.to_dict()
+
+
+@app.get("/api/3d/download/{generation_id}/{fmt}")
+def download_3d_model(generation_id: str, fmt: str, raw: bool = False):
+    fmt_clean = fmt.lower().strip()
+    if fmt_clean not in ("glb", "gltf", "obj"):
+        raise HTTPException(400, "Unsupported 3D export format. Choose glb, gltf, or obj.")
+
+    asset_dir = (MODEL_3D_DIR / generation_id).resolve()
+    if asset_dir.parent != MODEL_3D_DIR.resolve() or not asset_dir.exists():
+        raise HTTPException(404, "No 3D model generated for this design yet.")
+
+    if fmt_clean == "glb":
+        target = asset_dir / "model.glb"
+        if not target.exists():
+            raise HTTPException(404, "GLB asset not found.")
+        return FileResponse(
+            path=str(target),
+            media_type="model/gltf-binary",
+            filename=f"furnforge-{generation_id}.glb",
+        )
+
+    if fmt_clean == "gltf":
+        bundle = asset_dir / "model-gltf.zip"
+        single = asset_dir / "gltf" / "model.gltf"
+        if not raw and bundle.exists():
+            return FileResponse(
+                path=str(bundle),
+                media_type="application/zip",
+                filename=f"furnforge-{generation_id}-gltf.zip",
+            )
+        if single.exists():
+            return FileResponse(
+                path=str(single),
+                media_type="model/gltf+json",
+                filename=f"furnforge-{generation_id}.gltf",
+            )
+        raise HTTPException(404, "GLTF asset not found.")
+
+    bundle = asset_dir / "model-obj.zip"
+    single = asset_dir / "obj" / "model.obj"
+    if not raw and bundle.exists():
+        return FileResponse(
+            path=str(bundle),
+            media_type="application/zip",
+            filename=f"furnforge-{generation_id}-obj.zip",
+        )
+    if single.exists():
+        return FileResponse(
+            path=str(single),
+            media_type="text/plain",
+            filename=f"furnforge-{generation_id}.obj",
+        )
+    raise HTTPException(404, "OBJ asset not found.")
 
 
 @app.get("/api/gallery")
@@ -337,4 +570,7 @@ def delete_gallery_item(item_id: str):
     for url in urls:
         folder = OUTPUT_DIR if url.startswith("/outputs/") else UPLOAD_DIR
         (folder / url.rsplit("/", 1)[-1]).unlink(missing_ok=True)
+    asset_dir = MODEL_3D_DIR / item_id
+    if asset_dir.exists():
+        shutil.rmtree(asset_dir, ignore_errors=True)
     return {"status": "deleted", "id": item_id}

@@ -36,9 +36,16 @@ class Database:
                     cnn_features_json TEXT NOT NULL,
                     pipeline_mode TEXT NOT NULL,
                     execution_time REAL DEFAULT 0.0,
-                    created_at TEXT NOT NULL
+                    created_at TEXT NOT NULL,
+                    model_3d_json TEXT
                 )
             """)
+            cols = {
+                row["name"]
+                for row in cursor.execute("PRAGMA table_info(generations)").fetchall()
+            }
+            if "model_3d_json" not in cols:
+                cursor.execute("ALTER TABLE generations ADD COLUMN model_3d_json TEXT")
             conn.commit()
 
     def save_generation(self, data: Dict[str, Any]) -> str:
@@ -88,17 +95,26 @@ class Database:
             rows = cursor.fetchall()
             results = []
             for r in rows:
-                item = dict(r)
-                try:
-                    item["variations"] = json.loads(item["variations_json"])
-                except Exception:
-                    item["variations"] = []
-                try:
-                    item["cnn_features"] = json.loads(item["cnn_features_json"])
-                except Exception:
-                    item["cnn_features"] = {}
+                item = self._deserialize_row(dict(r))
                 results.append(item)
             return results
+
+    @staticmethod
+    def _deserialize_row(item: Dict[str, Any]) -> Dict[str, Any]:
+        for json_key, out_key, default in (
+            ("variations_json", "variations", []),
+            ("cnn_features_json", "cnn_features", {}),
+            ("model_3d_json", "model_3d", None),
+        ):
+            raw = item.get(json_key)
+            if not raw:
+                item[out_key] = default
+                continue
+            try:
+                item[out_key] = json.loads(raw)
+            except Exception:
+                item[out_key] = default
+        return item
 
     def get_by_id(self, item_id: str) -> Optional[Dict[str, Any]]:
         with self.get_connection() as conn:
@@ -107,16 +123,17 @@ class Database:
             row = cursor.fetchone()
             if not row:
                 return None
-            item = dict(row)
-            try:
-                item["variations"] = json.loads(item["variations_json"])
-            except Exception:
-                item["variations"] = []
-            try:
-                item["cnn_features"] = json.loads(item["cnn_features_json"])
-            except Exception:
-                item["cnn_features"] = {}
-            return item
+            return self._deserialize_row(dict(row))
+
+    def update_3d_model(self, item_id: str, model_3d: Dict[str, Any]) -> bool:
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE generations SET model_3d_json = ? WHERE id = ?",
+                (json.dumps(model_3d), item_id),
+            )
+            conn.commit()
+            return cursor.rowcount > 0
 
     def delete_by_id(self, item_id: str) -> bool:
         with self.get_connection() as conn:

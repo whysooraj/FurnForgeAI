@@ -46,3 +46,16 @@ class GenerateRequest(BaseModel):
     # OpenCV edge extraction
     low_threshold: int = Field(default=100, ge=1, le=255)
     high_threshold: int = Field(default=200, ge=1, le=255)
+
+
+class Generate3DRequest(BaseModel):
+    generation_id: str = Field(..., min_length=1)
+    image_url: Optional[str] = None
+    variation_index: Optional[int] = Field(default=0, ge=0, le=3)
+    model_preference: str = Field(
+        default="auto",
+        pattern="^(auto|triposr|hunyuan3d)$",
+    )
+    mc_resolution: int = Field(default=160, ge=96, le=256)
+    bake_texture: bool = True
+    seed: int = Field(default=42, ge=0, le=2147483647)
