@@ -148,6 +148,17 @@ def _model_status() -> dict:
 
 
 # --------------------------------------------------------------------------- routes
+@app.get("/")
+def _root():
+    return {
+        "status": "online",
+        "app": APP_NAME,
+        "version": APP_VERSION,
+        "health": "/api/health",
+        "docs": "/docs"
+    }
+
+
 @app.get("/api/health")
 def health():
     caps_3d = check_3d_capabilities()
