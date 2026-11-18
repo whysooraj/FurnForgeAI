@@ -4,13 +4,13 @@ import SketchUploader from './SketchUploader';
 import CustomizerPanel from './CustomizerPanel';
 import ResultsViewer from './ResultsViewer';
 import AIInspectorModal from './AIInspectorModal';
-import { generateFurniture, renderSpec } from '../services/api';
+import { generateFurniture, renderSpec, resolveAssetUrl, normalizeUrls } from '../services/api';
 import { SAMPLE_SKETCHES } from '../utils/presets';
 
 export default function Studio({ selectedPresetId }) {
   // Image & OpenCV states
   const initialPreset = selectedPresetId || 'chair';
-  const [selectedImage, setSelectedImage] = useState(`/sample_sketches/${initialPreset}_sketch.png`);
+  const [selectedImage, setSelectedImage] = useState(() => resolveAssetUrl(`/sample_sketches/${initialPreset}_sketch.png`));
   const [selectedSampleId, setSelectedSampleId] = useState(initialPreset);
   const [preprocessedData, setPreprocessedData] = useState(null);
   const [lowThresh, setLowThresh] = useState(100);
@@ -34,7 +34,7 @@ export default function Studio({ selectedPresetId }) {
   // Results & Execution states
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationJob, setGenerationJob] = useState(null);
-  const [resultData, setResultData] = useState({
+  const [resultData, setResultData] = useState(() => normalizeUrls({
     id: 'spec_chair_wood_warm_walnut_modern_matte',
     category: 'Chair',
     material: 'Wood',
@@ -55,7 +55,7 @@ export default function Studio({ selectedPresetId }) {
         seed: 42
       }
     ]
-  });
+  }));
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -102,8 +102,8 @@ export default function Studio({ selectedPresetId }) {
         if (active) {
           setResultData((prev) => ({
             ...spec,
-            original_image_url: selectedImage || `/sample_sketches/${category.toLowerCase()}_sketch.png`,
-            preprocessed_edge_url: spec.preprocessed_edge_url || `/outputs/edge_${category.toLowerCase()}.png`,
+            original_image_url: selectedImage || resolveAssetUrl(`/sample_sketches/${category.toLowerCase()}_sketch.png`),
+            preprocessed_edge_url: spec.preprocessed_edge_url || resolveAssetUrl(`/outputs/edge_${category.toLowerCase()}.png`),
             // Preserve CNN analysis if available
             cnn_features: spec.cnn_features || preprocessedData?.cnn_features || prev?.cnn_features || null
           }));
