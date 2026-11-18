@@ -103,7 +103,8 @@ class OpenCVPreprocessor:
         )
         if lines is not None:
             mx, my = int(0.16 * w), int(0.16 * h)
-            for x1, y1, x2, y2 in lines[:, 0]:
+            for line in lines.reshape(-1, 4):
+                x1, y1, x2, y2 = line
                 is_vert_margin = abs(x1 - x2) < 12 and (x1 < mx or x1 > w - mx)
                 is_horiz_margin = abs(y1 - y2) < 12 and (y1 < my or y1 > h - my)
                 if is_vert_margin or is_horiz_margin:
