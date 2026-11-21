@@ -114,11 +114,6 @@ class Database:
                 item[out_key] = json.loads(raw)
             except Exception:
                 item[out_key] = default
-        variations = item.get("variations") or []
-        if isinstance(variations, list) and variations and isinstance(variations[0], dict):
-            mv = variations[0].get("multi_views")
-            if mv:
-                item["multi_views"] = mv
         return item
 
     def get_by_id(self, item_id: str) -> Optional[Dict[str, Any]]:
@@ -129,16 +124,6 @@ class Database:
             if not row:
                 return None
             return self._deserialize_row(dict(row))
-
-    def update_variations(self, item_id: str, variations: List[Dict[str, Any]]) -> bool:
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                "UPDATE generations SET variations_json = ? WHERE id = ?",
-                (json.dumps(variations), item_id),
-            )
-            conn.commit()
-            return cursor.rowcount > 0
 
     def update_3d_model(self, item_id: str, model_3d: Dict[str, Any]) -> bool:
         with self.get_connection() as conn:

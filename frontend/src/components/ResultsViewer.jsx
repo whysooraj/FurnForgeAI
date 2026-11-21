@@ -1,10 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   Download, RefreshCw, Eye, Sparkles, Sliders, Layers, 
-  CheckCircle2, Info, ArrowLeftRight, Share2, Maximize2, Box, Camera, LayoutGrid, Timer, Clock 
+  CheckCircle2, Info, ArrowLeftRight, Share2, Maximize2, Box, Camera 
 } from 'lucide-react';
 import { COLORS } from '../utils/presets';
-import { getMultiViewStatus, triggerMultiViewGeneration } from '../services/api';
 import Model3DViewer from './Model3DViewer';
 import ViewInRoomModal from './ViewInRoomModal';
 
@@ -18,90 +17,13 @@ export default function ResultsViewer({
   onModelUpdated,
   rawSketchUrl
 }) {
-  const [viewMode, setViewMode] = useState('slider'); // 'slider', 'sideBySide', 'multiview', 'edges', '3d'
-  const [activeViewAngle, setActiveViewAngle] = useState('front'); // 'front', 'side', 'top', 'back'
-  const [bgMultiViews, setBgMultiViews] = useState(null);
-  const [isMultiViewGenerating, setIsMultiViewGenerating] = useState(false);
-  const [mvTimer, setMvTimer] = useState(0);
-  const [mvStepText, setMvStepText] = useState('Deep visual analysis of front view in progress...');
+  const [viewMode, setViewMode] = useState('slider'); // 'slider', 'sideBySide', 'edges', '3d'
   const [autoStart3DTrigger, setAutoStart3DTrigger] = useState(0);
   const [isRoomViewOpen, setIsRoomViewOpen] = useState(false);
   const [activeVarIdx, setActiveVarIdx] = useState(0);
   const [sliderPos, setSliderPos] = useState(50);
   const [isDragging, setIsDragging] = useState(false);
   const sliderRef = useRef(null);
-
-  useEffect(() => {
-    setActiveViewAngle('front');
-    setActiveVarIdx(0);
-  }, [resultData?.id]);
-
-  const rawVariations = resultData?.variations?.length
-    ? resultData.variations
-    : resultData
-    ? [{ image_url: resultData.result_image_url || resultData.primary_image_url }]
-    : [];
-  const effectVarIdx = activeVarIdx < rawVariations.length ? activeVarIdx : 0;
-  const effectVar = rawVariations[effectVarIdx] || rawVariations[0] || null;
-  const effectFrontUrl = effectVar?.image_url || resultData?.result_image_url || resultData?.primary_image_url || null;
-  const serverMultiViews = effectVar?.multi_views || resultData?.multi_views || bgMultiViews || null;
-
-  // Poll for background multi-views when generation completes front view first
-  useEffect(() => {
-    setBgMultiViews(null);
-    setMvTimer(0);
-    const initialMv = effectVar?.multi_views || resultData?.multi_views;
-    if (!resultData?.id) {
-      setIsMultiViewGenerating(false);
-      return;
-    }
-    if (initialMv?.views?.length >= 4) {
-      setIsMultiViewGenerating(false);
-      return;
-    }
-
-    let cancelled = false;
-    setIsMultiViewGenerating(true);
-
-    // Ensure multi-view generation is started on the server
-    triggerMultiViewGeneration(resultData.id).catch(() => {});
-
-    // Stopwatch ticker for live loading feedback
-    const timerInterval = setInterval(() => {
-      setMvTimer((prev) => +(prev + 0.1).toFixed(1));
-    }, 100);
-
-    const pollInterval = setInterval(async () => {
-      try {
-        const res = await getMultiViewStatus(resultData.id);
-        if (cancelled) return;
-        if (res?.step) {
-          setMvStepText(res.step);
-        }
-        if (res?.elapsed_seconds) {
-          setMvTimer(res.elapsed_seconds);
-        }
-        if (res?.status === 'ready' && res?.multi_views?.views?.length >= 4) {
-          setBgMultiViews(res.multi_views);
-          setIsMultiViewGenerating(false);
-          clearInterval(pollInterval);
-          clearInterval(timerInterval);
-        } else if (res?.status === 'failed') {
-          setIsMultiViewGenerating(false);
-          clearInterval(pollInterval);
-          clearInterval(timerInterval);
-        }
-      } catch (err) {
-        // silent retry
-      }
-    }, 1000);
-
-    return () => {
-      cancelled = true;
-      clearInterval(pollInterval);
-      clearInterval(timerInterval);
-    };
-  }, [resultData?.id, effectVar?.multi_views, resultData?.multi_views]);
 
   if (isGenerating) {
     const progressPct = generationJob ? Math.round((generationJob.progress || 0) * 100) : 15;
@@ -184,26 +106,9 @@ export default function ResultsViewer({
 
   const variations = resultData.variations && resultData.variations.length > 0
     ? resultData.variations
-    : [{ image_url: resultData.result_image_url || resultData.primary_image_url, style_variant: 'Studio Master Render', seed: 42 }];
+    : [{ image_url: resultData.primary_image_url, style_variant: 'Studio Master Render', seed: 42 }];
 
-  const safeVarIdx = activeVarIdx < variations.length ? activeVarIdx : 0;
-  const activeVariation = variations[safeVarIdx] || variations[0];
-  const frontRenderUrl = activeVariation?.image_url || resultData.result_image_url || resultData.primary_image_url;
-  const rawMv = activeVariation?.multi_views || resultData.multi_views || bgMultiViews || null;
-  const hasReadyMultiViews = Boolean(rawMv && rawMv.views && rawMv.views.length >= 4);
-  const multiViewsObj = hasReadyMultiViews ? rawMv : null;
-
-  const multiViewList = multiViewsObj?.views?.length
-    ? multiViewsObj.views
-    : [
-        { id: 'front', label: 'Front View', angle: '0° Front', image_url: frontRenderUrl },
-        ...(multiViewsObj?.side ? [{ id: 'side', label: 'Side View', angle: '90° Side', image_url: multiViewsObj.side }] : []),
-        ...(multiViewsObj?.top ? [{ id: 'top', label: 'Top View', angle: '90° Top', image_url: multiViewsObj.top }] : []),
-        ...(multiViewsObj?.back ? [{ id: 'back', label: 'Back View', angle: '180° Back', image_url: multiViewsObj.back }] : []),
-      ];
-
-  const activeViewMeta = multiViewList.find((v) => v.id === activeViewAngle) || multiViewList[0];
-  const currentActiveImage = activeViewMeta?.image_url || frontRenderUrl;
+  const currentActiveImage = variations[activeVarIdx]?.image_url || resultData.primary_image_url;
   const sketchImg = rawSketchUrl || resultData.original_image_url;
 
   const handlePointerMove = (e) => {
@@ -275,17 +180,6 @@ export default function ResultsViewer({
             Side-by-Side
           </button>
           <button
-            onClick={() => setViewMode('multiview')}
-            className={`px-2.5 sm:px-3 py-2 sm:py-1.5 rounded-lg font-medium transition-all flex items-center justify-center gap-1.5 text-center whitespace-nowrap ${
-              viewMode === 'multiview'
-                ? 'bg-white text-[#8B5A2B] shadow-xs font-bold'
-                : 'text-[#78716C] hover:text-[#1A1A1E]'
-            }`}
-          >
-            <LayoutGrid className="w-3.5 h-3.5 shrink-0" />
-            <span>Multi-View ({multiViewList.length})</span>
-          </button>
-          <button
             onClick={() => setViewMode('edges')}
             className={`px-2.5 sm:px-3 py-2 sm:py-1.5 rounded-lg font-medium transition-all text-center whitespace-nowrap ${
               viewMode === 'edges'
@@ -343,7 +237,7 @@ export default function ResultsViewer({
                 className="w-full h-full object-contain"
               />
               <span className="absolute bottom-3 right-3 bg-[#1A1A1E]/80 backdrop-blur-md text-white text-[11px] font-semibold px-2.5 py-1 rounded-lg">
-                {activeViewMeta?.label || 'Photoreal Render'} ({activeViewMeta?.angle || '0°'})
+                Photoreal Render
               </span>
             </div>
 
@@ -389,120 +283,13 @@ export default function ResultsViewer({
 
             <div className="aspect-square rounded-2xl overflow-hidden border border-[#E8E2D5] bg-[#FAF8F5] flex flex-col">
               <div className="p-2 border-b border-[#F0ECE1] text-[11px] font-bold text-[#8B5A2B] bg-[#FAF8F5] flex items-center justify-between">
-                <span>{activeViewMeta?.label || 'Photoreal Render'}</span>
-                <span className="text-[10px] text-[#78716C]">{activeViewMeta?.angle || variations[safeVarIdx]?.style_variant}</span>
+                <span>Photoreal Render</span>
+                <span className="text-[10px] text-[#78716C]">{variations[activeVarIdx]?.style_variant}</span>
               </div>
               <div className="flex-1 flex items-center justify-center p-3">
                 <img src={currentActiveImage} alt="Render" className="max-h-full max-w-full object-contain" />
               </div>
             </div>
-          </div>
-        )}
-
-        {viewMode === 'multiview' && (
-          <div className="space-y-4">
-            {!hasReadyMultiViews ? (
-              <div className="bg-[#FAF8F5] border border-[#E8E2D5] rounded-3xl p-8 sm:p-12 flex flex-col items-center justify-center text-center space-y-6 min-h-[440px]">
-                <div className="relative">
-                  <div className="w-24 h-24 rounded-full border-4 border-[#8B5A2B]/15 border-t-[#8B5A2B] animate-spin" />
-                  <div className="absolute inset-0 flex items-center justify-center text-[#8B5A2B]">
-                    <Clock className="w-8 h-8 animate-pulse text-[#8B5A2B]" />
-                  </div>
-                </div>
-
-                <div className="space-y-2 max-w-md">
-                  <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#8B5A2B]/10 text-[#8B5A2B] font-mono text-sm font-bold tracking-wide shadow-xs">
-                    <Timer className="w-4 h-4 animate-spin text-[#8B5A2B]" style={{ animationDuration: '3s' }} />
-                    <span>Analyzing &amp; Rendering: {mvTimer.toFixed(1)}s</span>
-                  </div>
-                  <h3 className="text-lg font-bold text-[#1A1A1E]">Synthesizing 4-Angle Multi-Views</h3>
-                  <p className="text-xs text-[#78716C] leading-relaxed max-w-sm mx-auto">
-                    {mvStepText}
-                  </p>
-                </div>
-
-                {/* Progress Indicators */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full max-w-lg pt-2 text-[11px] font-medium text-[#78716C]">
-                  <div className="p-2.5 rounded-xl bg-white border border-[#E8E2D5] flex items-center gap-2 justify-center text-[#8B5A2B]">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <span>Front 0° (Ready)</span>
-                  </div>
-                  <div className={`p-2.5 rounded-xl border flex items-center gap-2 justify-center ${mvTimer >= 2.0 ? 'bg-white border-[#8B5A2B] text-[#8B5A2B] font-semibold' : 'bg-white/60 border-[#E8E2D5]'}`}>
-                    <div className="w-2 h-2 rounded-full bg-[#8B5A2B] animate-ping" />
-                    <span>Side 90°</span>
-                  </div>
-                  <div className={`p-2.5 rounded-xl border flex items-center gap-2 justify-center ${mvTimer >= 4.0 ? 'bg-white border-[#8B5A2B] text-[#8B5A2B] font-semibold' : 'bg-white/60 border-[#E8E2D5]'}`}>
-                    <div className="w-2 h-2 rounded-full bg-[#8B5A2B]" />
-                    <span>Top 90°</span>
-                  </div>
-                  <div className={`p-2.5 rounded-xl border flex items-center gap-2 justify-center ${mvTimer >= 6.0 ? 'bg-white border-[#8B5A2B] text-[#8B5A2B] font-semibold' : 'bg-white/60 border-[#E8E2D5]'}`}>
-                    <div className="w-2 h-2 rounded-full bg-[#8B5A2B]" />
-                    <span>Back 180°</span>
-                  </div>
-                </div>
-
-                <p className="text-[11px] text-[#A8A29E] max-w-xs">
-                  Deep visual analysis running in background to ensure 100% orthogonal accuracy.
-                </p>
-              </div>
-            ) : (
-              <>
-                <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-                  <div className="text-xs text-[#5C3818] font-medium">
-                    Consistent Multi-View Output • Locked Geometry, Color &amp; Material Finish
-                  </div>
-                  {multiViewsObj?.sheet && (
-                    <button
-                      onClick={() => handleDownload(multiViewsObj.sheet, `furnforge-${resultData.category.toLowerCase()}-multiview-sheet.png`)}
-                      className="px-3 py-1.5 rounded-lg bg-[#FAF8F5] hover:bg-[#F2ECE1] border border-[#D5C7B0] text-[11px] font-semibold text-[#5C3818] flex items-center gap-1.5 transition-colors"
-                    >
-                      <Download className="w-3.5 h-3.5 text-[#8B5A2B]" />
-                      <span>Download 2×2 Sheet</span>
-                    </button>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  {multiViewList.map((v) => {
-                    const isSelected = activeViewAngle === v.id;
-                    return (
-                      <div
-                        key={v.id}
-                        onClick={() => setActiveViewAngle(v.id)}
-                        className={`group relative aspect-square rounded-2xl overflow-hidden border bg-[#FAF8F5] cursor-pointer transition-all flex flex-col ${
-                          isSelected
-                            ? 'border-[#8B5A2B] ring-2 ring-[#8B5A2B]/25 shadow-sm'
-                            : 'border-[#E8E2D5] hover:border-[#8B5A2B]/50'
-                        }`}
-                      >
-                        <div className="px-3 py-2 border-b border-[#F0ECE1] bg-white flex items-center justify-between">
-                          <span className="text-xs font-bold text-[#1A1A1E]">{v.label}</span>
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[10px] font-semibold text-[#8B5A2B] bg-[#8B5A2B]/10 px-2 py-0.5 rounded-full">
-                              {v.angle}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDownload(v.image_url, `furnforge-${resultData.category.toLowerCase()}-${v.id}.png`);
-                              }}
-                              className="p-1 rounded-md hover:bg-[#F5F2EB] text-[#555]"
-                              title={`Download ${v.label}`}
-                            >
-                              <Download className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                        <div className="flex-1 flex items-center justify-center p-2 bg-[#FAF8F5]">
-                          <img src={v.image_url} alt={v.label} className="w-full h-full object-contain rounded-lg" />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </>
-            )}
           </div>
         )}
 
@@ -521,71 +308,14 @@ export default function ResultsViewer({
 
         <div className={viewMode === '3d' ? 'block' : 'hidden'}>
           <Model3DViewer
-            key={`${resultData.id}-${frontRenderUrl}`}
-            item={{ ...resultData, result_image_url: frontRenderUrl, multi_views: multiViewsObj }}
+            key={`${resultData.id}-${currentActiveImage}`}
+            item={{ ...resultData, result_image_url: currentActiveImage }}
             autoStartTrigger={autoStart3DTrigger}
             onModelUpdated={onModelUpdated}
             onViewInRoom={() => setIsRoomViewOpen(true)}
           />
         </div>
       </div>
-
-      {/* Consistent Multi-View Camera Angles Strip (Front, Side, Top, Back) */}
-      {multiViewList.length > 1 && viewMode !== '3d' && viewMode !== 'edges' && (
-        <div className="space-y-2">
-          <div className="flex items-center justify-between gap-2">
-            <label className="text-xs font-bold uppercase tracking-wider text-[#555]">
-              Multi-View Angles • Consistent Output ({multiViewList.length})
-            </label>
-            {viewMode !== 'multiview' ? (
-              <button
-                type="button"
-                onClick={() => setViewMode('multiview')}
-                className="text-[11px] font-semibold text-[#8B5A2B] hover:underline flex items-center gap-1"
-              >
-                <LayoutGrid className="w-3 h-3" />
-                <span>View 4-Angle Grid</span>
-              </button>
-            ) : multiViewsObj?.sheet ? (
-              <button
-                type="button"
-                onClick={() => handleDownload(multiViewsObj.sheet, `furnforge-${resultData.category.toLowerCase()}-multiview.png`)}
-                className="text-[11px] font-semibold text-[#8B5A2B] hover:underline flex items-center gap-1"
-              >
-                <Download className="w-3 h-3" />
-                <span>Save 2×2 Sheet</span>
-              </button>
-            ) : null}
-          </div>
-          <div className="grid grid-cols-4 gap-2.5">
-            {multiViewList.map((v) => {
-              const isSel = activeViewAngle === v.id;
-              return (
-                <button
-                  key={v.id}
-                  type="button"
-                  onClick={() => {
-                    setActiveViewAngle(v.id);
-                    if (viewMode === 'multiview') {
-                      setViewMode('slider');
-                    }
-                  }}
-                  className={`relative aspect-square rounded-xl overflow-hidden border transition-all p-1 bg-[#FAF8F5] text-left ${
-                    isSel
-                      ? 'border-[#8B5A2B] ring-2 ring-[#8B5A2B]/30 shadow-xs'
-                      : 'border-[#E8E2D5] hover:border-[#8B5A2B]/40'
-                  }`}
-                >
-                  <img src={v.image_url} alt={v.label} className="w-full h-full object-contain rounded-lg" />
-                  <span className="absolute bottom-1 left-1 right-1 bg-black/75 text-white text-[9px] font-semibold px-1.5 py-0.5 rounded text-center truncate">
-                    {v.label}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {/* Multiple Variations Strip (if > 1) */}
       {variations.length > 1 && (
@@ -599,7 +329,7 @@ export default function ResultsViewer({
                 key={idx}
                 onClick={() => setActiveVarIdx(idx)}
                 className={`relative aspect-square rounded-xl overflow-hidden border transition-all p-1 bg-[#FAF8F5] ${
-                  safeVarIdx === idx
+                  activeVarIdx === idx
                     ? 'border-[#8B5A2B] ring-2 ring-[#8B5A2B]/30 scale-105'
                     : 'border-[#E8E2D5] hover:border-[#8B5A2B]/40'
                 }`}
@@ -618,11 +348,11 @@ export default function ResultsViewer({
       <div className="pt-2 flex flex-col gap-2.5 sm:gap-3">
         <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2">
           <button
-            onClick={() => handleDownload(currentActiveImage, `furnforge-${resultData.category.toLowerCase()}-${activeViewAngle}.png`)}
+            onClick={() => handleDownload(currentActiveImage, `furnforge-${resultData.category.toLowerCase()}.png`)}
             className="px-3 sm:px-4 py-2.5 rounded-xl bg-[#1A1A1E] hover:bg-[#2C2C32] text-white text-xs font-semibold flex items-center justify-center gap-1.5 sm:gap-2 shadow-xs transition-all"
           >
             <Download className="w-3.5 h-3.5 shrink-0" />
-            <span className="truncate">Download PNG</span>
+            <span className="truncate">Download 8K PNG</span>
           </button>
 
           <button
@@ -666,7 +396,7 @@ export default function ResultsViewer({
       <ViewInRoomModal
         isOpen={isRoomViewOpen}
         onClose={() => setIsRoomViewOpen(false)}
-        item={{ ...resultData, result_image_url: frontRenderUrl }}
+        item={{ ...resultData, result_image_url: currentActiveImage }}
         onModelUpdated={onModelUpdated}
       />
     </div>

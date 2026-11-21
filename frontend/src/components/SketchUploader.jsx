@@ -24,6 +24,7 @@ export default function SketchUploader({
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const fileInputRef = useRef(null);
+  const shouldAutoSyncCategoryRef = useRef(false);
 
   // Automatically trigger OpenCV preprocessing when image or thresholds change
   useEffect(() => {
@@ -44,6 +45,12 @@ export default function SketchUploader({
           method: 'canny'
         });
         setPreprocessedData(res);
+
+        // Auto-align category to detected furniture category from CNN sketch analysis
+        if (shouldAutoSyncCategoryRef.current && res?.cnn_features?.detected_category && setCategory) {
+          setCategory(res.cnn_features.detected_category);
+          shouldAutoSyncCategoryRef.current = false;
+        }
       } catch (err) {
         console.error('OpenCV error:', err);
       } finally {
@@ -71,6 +78,7 @@ export default function SketchUploader({
 
     const reader = new FileReader();
     reader.onload = (e) => {
+      shouldAutoSyncCategoryRef.current = true;
       if (onCustomImageUpload) {
         onCustomImageUpload(e.target.result);
       } else {

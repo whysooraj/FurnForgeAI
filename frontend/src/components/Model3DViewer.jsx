@@ -105,21 +105,8 @@ export default function Model3DViewer({ item, onModelUpdated, autoStartTrigger =
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [errorMsg, setErrorMsg] = useState('');
   const [cameraCommand, setCameraCommand] = useState({ preset: 'reset', tick: 0 });
-  const [activeAngle, setActiveAngle] = useState('reset');
   const lastAutoTriggerRef = useRef(0);
   const isGeneratingRef = useRef(false);
-
-  const mvObj = item?.multi_views || model3d?.multi_views || item?.variations?.[0]?.multi_views || null;
-  const sourceViews = mvObj?.views?.length
-    ? mvObj.views
-    : [
-        ...(mvObj?.front || item?.result_image_url
-          ? [{ id: 'front', label: 'Front', angle: '0°', image_url: mvObj?.front || item?.result_image_url }]
-          : []),
-        ...(mvObj?.side ? [{ id: 'side', label: 'Side', angle: '90°', image_url: mvObj.side }] : []),
-        ...(mvObj?.top ? [{ id: 'top', label: 'Top', angle: '90°', image_url: mvObj.top }] : []),
-        ...(mvObj?.back ? [{ id: 'back', label: 'Back', angle: '180°', image_url: mvObj.back }] : []),
-      ];
 
   useEffect(() => {
     if (!isGenerating) return undefined;
@@ -188,7 +175,6 @@ export default function Model3DViewer({ item, onModelUpdated, autoStartTrigger =
 
       const generated = response?.model_3d || response;
       setModel3d(generated);
-      setActiveAngle('reset');
       setCameraCommand({ preset: 'reset', tick: Date.now() });
       if (onModelUpdated) {
         onModelUpdated(item.id, generated);
@@ -217,7 +203,6 @@ export default function Model3DViewer({ item, onModelUpdated, autoStartTrigger =
   }, [autoStartTrigger, model3d?.glb_url, handleGenerate3D]);
 
   const triggerCamera = (preset) => {
-    setActiveAngle(preset);
     setCameraCommand({ preset, tick: Date.now() });
   };
 
@@ -244,53 +229,23 @@ export default function Model3DViewer({ item, onModelUpdated, autoStartTrigger =
     <div className="space-y-4">
       {/* Input Verification & Generate Controls */}
       <div className="flex flex-col gap-3 p-3.5 rounded-2xl bg-[#FAF8F5] border border-[#E8E2D5]">
-        <div className="flex items-start sm:items-center gap-3 min-w-0 flex-col sm:flex-row">
-          {sourceViews.length > 1 ? (
-            <div className="grid grid-cols-4 gap-1.5 shrink-0">
-              {sourceViews.map((v) => {
-                const isAngleActive = activeAngle === v.id;
-                return (
-                  <button
-                    key={v.id}
-                    type="button"
-                    onClick={() => triggerCamera(v.id)}
-                    title={`Rotate 3D model to ${v.label}`}
-                    className={`relative w-12 h-12 rounded-xl overflow-hidden border bg-white transition-all ${
-                      isAngleActive
-                        ? 'border-[#8B5A2B] ring-2 ring-[#8B5A2B]/30'
-                        : 'border-[#E8E2D5] hover:border-[#8B5A2B]/50'
-                    }`}
-                  >
-                    <img src={v.image_url} alt={v.label} className="w-full h-full object-cover" />
-                    <span className="absolute bottom-0 inset-x-0 bg-black/75 text-white text-[8px] font-semibold text-center leading-tight py-0.5">
-                      {v.label.replace(' View', '')}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="w-12 h-12 rounded-xl overflow-hidden border border-[#E8E2D5] bg-white shrink-0">
-              <img
-                src={item.result_image_url}
-                alt="Photoreal input"
-                className="w-full h-full object-cover"
-              />
-            </div>
-          )}
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-12 h-12 rounded-xl overflow-hidden border border-[#E8E2D5] bg-white shrink-0">
+            <img
+              src={item.result_image_url}
+              alt="Photoreal input"
+              className="w-full h-full object-cover"
+            />
+          </div>
           <div className="min-w-0 flex-1">
             <span className="text-[10px] font-bold uppercase tracking-wider text-[#8B5A2B] block">
-              {sourceViews.length > 1
-                ? 'Source: 4-View Consistent Photoreal Renders (Front • Side • Top • Back)'
-                : 'Source: Photorealistic 2D Render'}
+              Source: Photorealistic 2D Render
             </span>
             <p className="text-xs font-semibold text-[#1A1A1E] truncate">
               1st: stabilityai/TripoSR • Fallback: tencent/Hunyuan3D-2mini
             </p>
             <p className="text-[11px] text-[#78716C] truncate">
-              {sourceViews.length > 1
-                ? 'Click any view thumbnail or camera button to inspect 3D alignment'
-                : 'Uses the exact generated render (never sketch or edge map)'}
+              Uses the exact generated render (never sketch or edge map)
             </p>
           </div>
         </div>
@@ -413,15 +368,11 @@ export default function Model3DViewer({ item, onModelUpdated, autoStartTrigger =
           {/* Camera Controls Bar */}
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex flex-wrap items-center gap-1.5">
-              {['front', 'side', 'top', 'back'].map((presetKey) => (
+              {['front', 'back', 'side', 'top'].map((presetKey) => (
                 <button
                   key={presetKey}
                   onClick={() => triggerCamera(presetKey)}
-                  className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-colors ${
-                    activeAngle === presetKey
-                      ? 'bg-[#8B5A2B] text-white shadow-xs'
-                      : 'bg-[#F5F2EB] hover:bg-[#EAE4D7] text-[#1A1A1E]'
-                  }`}
+                  className="px-3 py-1.5 rounded-lg bg-[#F5F2EB] hover:bg-[#EAE4D7] text-[#1A1A1E] text-[11px] font-semibold transition-colors"
                 >
                   {CAMERA_PRESETS[presetKey].label}
                 </button>
@@ -449,19 +400,19 @@ export default function Model3DViewer({ item, onModelUpdated, autoStartTrigger =
                 gl={{
                   antialias: true,
                   toneMapping: THREE.ACESFilmicToneMapping,
-                  toneMappingExposure: 1.06,
+                  toneMappingExposure: 0.92,
                 }}
               >
-                <ambientLight intensity={0.72} />
+                <ambientLight intensity={0.38} />
                 <directionalLight
                   position={[3.5, 5, 3.5]}
-                  intensity={1.12}
+                  intensity={0.95}
                   castShadow
                   shadow-mapSize-width={1024}
                   shadow-mapSize-height={1024}
                 />
-                <directionalLight position={[-3, 2.5, -2.5]} intensity={0.58} />
-                <Environment preset="studio" environmentIntensity={0.52} />
+                <directionalLight position={[-3, 2, -2.5]} intensity={0.35} />
+                <Environment preset="studio" environmentIntensity={0.45} />
 
                 <Suspense
                   fallback={
@@ -473,9 +424,7 @@ export default function Model3DViewer({ item, onModelUpdated, autoStartTrigger =
                     </Html>
                   }
                 >
-                  <LoadedGLBModel
-                    url={`${model3d.glb_url}${model3d.glb_url.includes('?') ? '&' : '?'}v=${model3d.vertex_count || 0}_${model3d.execution_time || 0}`}
-                  />
+                  <LoadedGLBModel url={model3d.glb_url} />
                 </Suspense>
 
                 <ContactShadows

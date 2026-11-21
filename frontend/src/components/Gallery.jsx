@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Download, Eye, Trash2, Sparkles, Filter, Calendar, 
-  Layers, ArrowLeftRight, Check, X, RefreshCw, Box, Camera, LayoutGrid 
+  Layers, ArrowLeftRight, Check, X, RefreshCw, Box, Camera 
 } from 'lucide-react';
 import { getGallery, deleteGalleryItem } from '../services/api';
 import { CATEGORIES } from '../utils/presets';
-import { synthesizeClientMultiViews } from '../utils/multiviewClient';
 import Model3DViewer from './Model3DViewer';
 import ViewInRoomModal from './ViewInRoomModal';
 
@@ -14,37 +13,8 @@ export default function Gallery({ onSelectForStudio }) {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [isLoading, setIsLoading] = useState(true);
   const [activeModalItem, setActiveModalItem] = useState(null);
-  const [modalTab, setModalTab] = useState('photoreal'); // 'photoreal' | 'multiview' | 'compare' | '3d'
-  const [modalViewAngle, setModalViewAngle] = useState('front');
-  const [modalClientMv, setModalClientMv] = useState(null);
+  const [modalTab, setModalTab] = useState('photoreal'); // 'photoreal' | 'compare' | '3d'
   const [roomViewItem, setRoomViewItem] = useState(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!activeModalItem?.result_image_url) {
-      setModalClientMv(null);
-      return () => {
-        cancelled = true;
-      };
-    }
-    const existingMv = activeModalItem.multi_views || activeModalItem.variations?.[0]?.multi_views;
-    if (existingMv?.views?.length >= 4) {
-      setModalClientMv(null);
-      return () => {
-        cancelled = true;
-      };
-    }
-    synthesizeClientMultiViews(activeModalItem.result_image_url, activeModalItem.category || 'Chair')
-      .then((mv) => {
-        if (!cancelled && mv) {
-          setModalClientMv(mv);
-        }
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [activeModalItem?.id, activeModalItem?.result_image_url]);
 
   const fetchItems = async () => {
     try {
@@ -147,7 +117,6 @@ export default function Gallery({ onSelectForStudio }) {
               onClick={() => {
                 setActiveModalItem(item);
                 setModalTab('photoreal');
-                setModalViewAngle('front');
               }}
               className="group bg-white rounded-2xl overflow-hidden border border-[#E8E2D5] shadow-xs hover:shadow-lg hover:border-[#8B5A2B]/40 transition-all cursor-pointer flex flex-col"
             >
@@ -171,7 +140,6 @@ export default function Gallery({ onSelectForStudio }) {
                       e.stopPropagation();
                       setActiveModalItem(item);
                       setModalTab('photoreal');
-                      setModalViewAngle('front');
                     }}
                     className="w-9 h-9 rounded-full bg-white text-[#1A1A1E] flex items-center justify-center hover:scale-110 transition-transform shadow-md"
                     title="View Details"
@@ -238,8 +206,8 @@ export default function Gallery({ onSelectForStudio }) {
               </button>
             </div>
 
-            {/* View Mode Toggle (4 Tabs) */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 bg-[#F5F2EB] p-1 rounded-xl text-[11px] sm:text-xs">
+            {/* View Mode Toggle (3 Tabs) */}
+            <div className="grid grid-cols-3 gap-1 bg-[#F5F2EB] p-1 rounded-xl text-[11px] sm:text-xs">
               <button
                 onClick={() => setModalTab('photoreal')}
                 className={`py-2 sm:py-1.5 px-1.5 sm:px-2 rounded-lg font-medium transition-all ${
@@ -247,15 +215,6 @@ export default function Gallery({ onSelectForStudio }) {
                 }`}
               >
                 Photoreal
-              </button>
-              <button
-                onClick={() => setModalTab('multiview')}
-                className={`py-2 sm:py-1.5 px-1.5 sm:px-2 rounded-lg font-medium transition-all flex items-center justify-center gap-1 sm:gap-1.5 ${
-                  modalTab === 'multiview' ? 'bg-white text-[#8B5A2B] shadow-xs font-bold' : 'text-[#78716C] hover:text-[#1A1A1E]'
-                }`}
-              >
-                <LayoutGrid className="w-3.5 h-3.5 shrink-0" />
-                <span>Multi-View</span>
               </button>
               <button
                 onClick={() => setModalTab('compare')}
@@ -277,93 +236,15 @@ export default function Gallery({ onSelectForStudio }) {
             </div>
 
             {/* Tab Content */}
-            {modalTab === 'photoreal' && (() => {
-              const rawMv = activeModalItem.multi_views || activeModalItem.variations?.[0]?.multi_views;
-              const mv = (rawMv?.views?.length >= 4 ? rawMv : null) || modalClientMv || rawMv;
-              const views = mv?.views?.length
-                ? mv.views
-                : [{ id: 'front', label: 'Front View', angle: '0° Front', image_url: activeModalItem.result_image_url }];
-              const cur = views.find((v) => v.id === modalViewAngle) || views[0];
-              return (
-                <div className="space-y-3">
-                  <div className="aspect-square max-h-[420px] mx-auto rounded-2xl overflow-hidden border border-[#E8E2D5] bg-[#FAF8F5] flex items-center justify-center p-2 relative">
-                    <img
-                      src={cur.image_url}
-                      alt={`${activeModalItem.category} ${cur.label}`}
-                      className="max-h-full max-w-full object-contain"
-                    />
-                    <span className="absolute bottom-3 right-3 bg-[#1A1A1E]/80 text-white text-[10px] font-semibold px-2 py-0.5 rounded-md">
-                      {cur.label} ({cur.angle})
-                    </span>
-                  </div>
-                  {views.length > 1 && (
-                    <div className="grid grid-cols-4 gap-2">
-                      {views.map((v) => (
-                        <button
-                          key={v.id}
-                          type="button"
-                          onClick={() => setModalViewAngle(v.id)}
-                          className={`relative aspect-square rounded-xl overflow-hidden border p-1 bg-[#FAF8F5] transition-all ${
-                            cur.id === v.id
-                              ? 'border-[#8B5A2B] ring-2 ring-[#8B5A2B]/30'
-                              : 'border-[#E8E2D5] hover:border-[#8B5A2B]/40'
-                          }`}
-                        >
-                          <img src={v.image_url} alt={v.label} className="w-full h-full object-contain rounded-lg" />
-                          <span className="absolute bottom-1 left-1 right-1 bg-black/75 text-white text-[9px] font-semibold px-1 py-0.5 rounded text-center truncate">
-                            {v.label}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-
-            {modalTab === 'multiview' && (() => {
-              const rawMv = activeModalItem.multi_views || activeModalItem.variations?.[0]?.multi_views;
-              const mv = (rawMv?.views?.length >= 4 ? rawMv : null) || modalClientMv || rawMv;
-              const views = mv?.views?.length
-                ? mv.views
-                : [{ id: 'front', label: 'Front View', angle: '0° Front', image_url: activeModalItem.result_image_url }];
-              return (
-                <div className="space-y-3">
-                  {mv?.sheet && (
-                    <div className="flex justify-end">
-                      <button
-                        type="button"
-                        onClick={(e) => handleDownload(e, mv.sheet, `furnforge-${activeModalItem.category.toLowerCase()}-multiview.png`)}
-                        className="px-3 py-1.5 rounded-lg bg-[#FAF8F5] hover:bg-[#F2ECE1] border border-[#D5C7B0] text-xs font-semibold text-[#5C3818] flex items-center gap-1.5"
-                      >
-                        <Download className="w-3.5 h-3.5 text-[#8B5A2B]" />
-                        <span>Download 2×2 Sheet</span>
-                      </button>
-                    </div>
-                  )}
-                  <div className="grid grid-cols-2 gap-3">
-                    {views.map((v) => (
-                      <div key={v.id} className="aspect-square rounded-2xl overflow-hidden border border-[#E8E2D5] bg-[#FAF8F5] flex flex-col">
-                        <div className="px-3 py-1.5 border-b border-[#F0ECE1] bg-white flex items-center justify-between text-[11px]">
-                          <span className="font-bold text-[#1A1A1E]">{v.label}</span>
-                          <button
-                            type="button"
-                            onClick={(e) => handleDownload(e, v.image_url, `furnforge-${activeModalItem.category.toLowerCase()}-${v.id}.png`)}
-                            className="text-[#8B5A2B] hover:underline flex items-center gap-1"
-                          >
-                            <Download className="w-3 h-3" />
-                            <span>Save</span>
-                          </button>
-                        </div>
-                        <div className="flex-1 flex items-center justify-center p-2">
-                          <img src={v.image_url} alt={v.label} className="max-h-full max-w-full object-contain rounded-lg" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })()}
+            {modalTab === 'photoreal' && (
+              <div className="aspect-square max-h-[440px] mx-auto rounded-2xl overflow-hidden border border-[#E8E2D5] bg-[#FAF8F5] flex items-center justify-center p-2">
+                <img
+                  src={activeModalItem.result_image_url}
+                  alt={activeModalItem.category}
+                  className="max-h-full max-w-full object-contain"
+                />
+              </div>
+            )}
 
             {modalTab === 'compare' && (
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

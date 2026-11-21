@@ -12,14 +12,12 @@ import base64
 import binascii
 import json
 import logging
-from pathlib import Path
 import random
 import shutil
-import threading
 import time
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Optional
 
 import cv2
 import numpy as np
@@ -52,7 +50,6 @@ from app.models.schemas import Generate3DRequest, GenerateRequest, PreprocessReq
 from app.pipeline.cnn_extractor import CNNFeatureExtractor
 from app.pipeline.cv_preprocessor import OpenCVPreprocessor
 from app.pipeline.diffusion_engine import DiffusionEngine
-from app.pipeline.multiview_renderer import generate_multi_views
 from app.pipeline.photoreal_renderer import render_specification
 from app.pipeline.prompt_builder import build_prompt
 from app.pipeline.mesh3d_engine import (
@@ -320,15 +317,7 @@ def generate(req: GenerateRequest):
             )
             name = f"render_{gen_id}_{i}.png"
             image.save(OUTPUT_DIR / name)
-            job.report(i, req.num_inference_steps, req.num_inference_steps,
-                       f"Front View generated successfully ({i + 1}/{req.num_variations})")
-            variations.append({
-                "variation_index": i,
-                "image_url": f"/outputs/{name}",
-                "seed": seed,
-                "multi_views": None,
-                "multi_views_status": "processing",
-            })
+            variations.append({"variation_index": i, "image_url": f"/outputs/{name}", "seed": seed})
 
         elapsed = round(time.time() - t0, 2)
         mode_label = engine.engine_label + (" + LCM-LoRA" if req.fast and engine.lcm_available else "")
@@ -341,8 +330,6 @@ def generate(req: GenerateRequest):
             "original_image_url": original_url,
             "preprocessed_edge_url": f"/outputs/{edge_name}",
             "result_image_url": variations[0]["image_url"],
-            "multi_views": None,
-            "multi_views_status": "processing",
             "variations": variations,
             "cnn_features": {k: v for k, v in cnn_features.items() if k != "b64_heatmap"},
             "pipeline_mode": mode_label,
@@ -350,16 +337,6 @@ def generate(req: GenerateRequest):
             "created_at": datetime.now().isoformat(timespec="seconds"),
         }
         db.save_generation(record)
-
-        # Background worker state tracker
-        _record_multiview_started(gen_id)
-        threading.Thread(
-            target=_bg_process_multiviews,
-            args=(gen_id, req.category, variations),
-            daemon=True,
-            name=f"mv_{gen_id}",
-        ).start()
-
         return {**record, "cnn_features": cnn_features, "negative_prompt": negative, "device": DEVICE,
                 "settings": req.model_dump(exclude={"image_base64"})}
 
@@ -374,144 +351,12 @@ def generate(req: GenerateRequest):
     }
 
 
-_MULTIVIEW_JOBS: Dict[str, Dict[str, Any]] = {}
-
-
-def _record_multiview_started(gen_id: str):
-    _MULTIVIEW_JOBS[gen_id] = {
-        "start_time": time.time(),
-        "status": "processing",
-        "step": "Analyzing front view silhouette & 3D proportions...",
-    }
-
-
-def _bg_process_multiviews(gen_id: str, category: str, variations: list):
-    t_start = time.time()
-    try:
-        _MULTIVIEW_JOBS[gen_id] = {
-            "start_time": t_start,
-            "status": "processing",
-            "step": "Deep visual analysis of front view image...",
-        }
-        updated_variations = []
-        for v in variations:
-            img_name = Path(v["image_url"]).name
-            img_path = OUTPUT_DIR / img_name
-            front_bgr = cv2.imread(str(img_path))
-            if front_bgr is not None:
-                _MULTIVIEW_JOBS[gen_id]["step"] = "Synthesizing 90° Side profile & 90° Overhead seating plan..."
-                mv = generate_multi_views(
-                    front_bgr=front_bgr,
-                    prefix=f"render_{gen_id}_{v['variation_index']}",
-                    category=category,
-                    output_dir=OUTPUT_DIR,
-                    front_url=v["image_url"],
-                )
-                updated_variations.append({
-                    **v,
-                    "multi_views": mv,
-                    "multi_views_status": "ready",
-                })
-            else:
-                updated_variations.append({
-                    **v,
-                    "multi_views_status": "failed",
-                })
-        db.update_variations(gen_id, updated_variations)
-        elapsed = round(time.time() - t_start, 2)
-        _MULTIVIEW_JOBS[gen_id] = {
-            "start_time": t_start,
-            "total_time": elapsed,
-            "status": "ready",
-            "step": "Multi-view synthesis complete!",
-        }
-        logger.info("Background multi-view analysis & generation completed for %s in %.2fs", gen_id, elapsed)
-    except Exception as mv_exc:
-        _MULTIVIEW_JOBS[gen_id] = {"status": "failed", "step": str(mv_exc)}
-        logger.exception("Background multi-view error for %s: %s", gen_id, mv_exc)
-
-
-@app.post("/api/multiview/generate/{generation_id}")
-def trigger_multiview_generation(generation_id: str):
-    """Trigger background multi-view generation for a completed front view render."""
-    item = db.get_by_id(generation_id)
-    if not item:
-        raise HTTPException(404, "Generation not found.")
-
-    variations = item.get("variations") or []
-    if not variations:
-        raise HTTPException(400, "No variations found for generation.")
-
-    first_var = variations[0]
-    mv = first_var.get("multi_views") or item.get("multi_views")
-    if mv and isinstance(mv, dict) and mv.get("views") and len(mv["views"]) >= 4:
-        return {"generation_id": generation_id, "status": "ready", "multi_views": mv}
-
-    job_info = _MULTIVIEW_JOBS.get(generation_id)
-    if job_info and job_info.get("status") == "processing":
-        elapsed = round(time.time() - job_info["start_time"], 1)
-        return {
-            "generation_id": generation_id,
-            "status": "processing",
-            "elapsed_seconds": elapsed,
-            "step": job_info.get("step"),
-        }
-
-    _record_multiview_started(generation_id)
-    threading.Thread(
-        target=_bg_process_multiviews,
-        args=(generation_id, item.get("category", "Chair"), variations),
-        daemon=True,
-        name=f"mv_{generation_id}",
-    ).start()
-
-    return {
-        "generation_id": generation_id,
-        "status": "processing",
-        "elapsed_seconds": 0.0,
-        "step": "Started multi-view generation",
-    }
-
-
 @app.get("/api/jobs/{job_id}")
 def job_status(job_id: str):
     job = jobs.get(job_id) or jobs_3d.get(job_id)
     if not job:
         raise HTTPException(404, "Job not found.")
     return job.to_dict()
-
-
-@app.get("/api/multiview/status/{generation_id}")
-def multiview_status(generation_id: str):
-    """Check asynchronous background multi-view generation progress and retrieve views."""
-    item = db.get_by_id(generation_id)
-    if not item:
-        raise HTTPException(404, "Generation not found.")
-    vars_list = item.get("variations") or []
-    first_var = vars_list[0] if vars_list else {}
-    mv = first_var.get("multi_views") or item.get("multi_views")
-    job_info = _MULTIVIEW_JOBS.get(generation_id, {})
-
-    if mv and isinstance(mv, dict) and mv.get("views") and len(mv["views"]) >= 4:
-        status = "ready"
-    else:
-        status = job_info.get("status", first_var.get("multi_views_status", "processing"))
-
-    elapsed = 0.0
-    if "start_time" in job_info:
-        if status == "ready":
-            elapsed = job_info.get("total_time", round(time.time() - job_info["start_time"], 1))
-        else:
-            elapsed = round(time.time() - job_info["start_time"], 1)
-
-    return {
-        "generation_id": generation_id,
-        "status": status,
-        "elapsed_seconds": elapsed,
-        "step": job_info.get("step", "Synthesizing orthogonal angles"),
-        "multi_views": mv,
-        "variations": vars_list,
-    }
 
 
 # --------------------------------------------------------------------------- 3D reconstruction (TripoSR -> Hunyuan3D-2mini)
@@ -579,11 +424,8 @@ def generate_3d_model(req: Generate3DRequest):
 
     if not item:
         if req.generation_id.startswith("spec_") and img_path and img_path.startswith("/outputs/spec_"):
-            spec_parts = req.generation_id.split("_")
-            spec_cat = spec_parts[1].capitalize() if len(spec_parts) > 1 else "Chair"
             item = {
                 "id": req.generation_id,
-                "category": spec_cat,
                 "result_image_url": img_path,
                 "variations": [{"variation_index": 0, "image_url": img_path}],
                 "original_image_url": None,
@@ -591,10 +433,6 @@ def generate_3d_model(req: Generate3DRequest):
             }
         else:
             raise HTTPException(404, f"Generation '{req.generation_id}' not found in gallery.")
-
-    item = _ensure_item_multiviews(item)
-    item_category = item.get("category", "Chair")
-    item_multi_views = item.get("multi_views")
 
     try:
         image_path, source_url = resolve_photoreal_render_path(
@@ -663,8 +501,6 @@ def generate_3d_model(req: Generate3DRequest):
                 bake_texture=req.bake_texture,
                 seed=req.seed,
                 progress=on_progress,
-                category=item_category,
-                multi_views=item_multi_views,
             )
             db.update_3d_model(req.generation_id, model_3d)
             return {"generation_id": req.generation_id, "model_3d": model_3d}
@@ -753,77 +589,9 @@ def download_3d_model(generation_id: str, fmt: str, raw: bool = False):
     raise HTTPException(404, "OBJ asset not found.")
 
 
-def _ensure_item_multiviews(item: dict) -> dict:
-    """Guarantee that a gallery record has consistent Side, Top, Back & Sheet views on disk."""
-    mv = item.get("multi_views")
-    if isinstance(mv, dict) and mv.get("side") and mv.get("top") and mv.get("back"):
-        side_name = mv["side"].split("/")[-1]
-        top_name = mv["top"].split("/")[-1]
-        back_name = mv["back"].split("/")[-1]
-        if (OUTPUT_DIR / side_name).exists() and (OUTPUT_DIR / top_name).exists() and (OUTPUT_DIR / back_name).exists():
-            return item
-
-    front_url = item.get("result_image_url")
-    if not front_url or not front_url.startswith("/outputs/"):
-        return item
-
-    front_name = front_url.split("/")[-1]
-    front_path = OUTPUT_DIR / front_name
-    if not front_path.exists():
-        return item
-
-    front_bgr = cv2.imread(str(front_path))
-    if front_bgr is None:
-        return item
-
-    prefix = front_path.stem
-    mv = generate_multi_views(
-        front_bgr=front_bgr,
-        prefix=prefix,
-        category=item.get("category", "Chair"),
-        output_dir=OUTPUT_DIR,
-        front_url=front_url,
-    )
-    item["multi_views"] = mv
-    variations = item.get("variations") or []
-    if variations and isinstance(variations[0], dict):
-        variations[0]["multi_views"] = mv
-        db.update_variations(item["id"], variations)
-    return item
-
-
-@app.post("/api/multiview/{generation_id}")
-def generate_item_multiviews(generation_id: str, force: bool = False):
-    """Synthesize or retrieve consistent Front, Side, Top, and Back views for a generation."""
-    item = db.get_by_id(generation_id)
-    if not item:
-        raise HTTPException(404, "Design generation not found.")
-    if force and item.get("result_image_url", "").startswith("/outputs/"):
-        front_name = item["result_image_url"].split("/")[-1]
-        front_path = OUTPUT_DIR / front_name
-        if front_path.exists():
-            front_bgr = cv2.imread(str(front_path))
-            if front_bgr is not None:
-                mv = generate_multi_views(
-                    front_bgr=front_bgr,
-                    prefix=front_path.stem,
-                    category=item.get("category", "Chair"),
-                    output_dir=OUTPUT_DIR,
-                    front_url=item["result_image_url"],
-                )
-                item["multi_views"] = mv
-                variations = item.get("variations") or []
-                if variations and isinstance(variations[0], dict):
-                    variations[0]["multi_views"] = mv
-                    db.update_variations(item["id"], variations)
-                return {"generation_id": generation_id, "multi_views": mv}
-    updated = _ensure_item_multiviews(item)
-    return {"generation_id": generation_id, "multi_views": updated.get("multi_views")}
-
-
 @app.get("/api/gallery")
 def gallery(category: Optional[str] = None, limit: int = 60):
-    items = [_ensure_item_multiviews(it) for it in db.get_all(category=category, limit=limit)]
+    items = db.get_all(category=category, limit=limit)
     return {"count": len(items), "items": items}
 
 
@@ -832,7 +600,7 @@ def gallery_item(item_id: str):
     item = db.get_by_id(item_id)
     if not item:
         raise HTTPException(404, "Item not found.")
-    return _ensure_item_multiviews(item)
+    return item
 
 
 @app.delete("/api/gallery/{item_id}")
@@ -842,12 +610,6 @@ def delete_gallery_item(item_id: str):
         raise HTTPException(404, "Item not found.")
     # Remove the generated files belonging to this item.
     urls = [v["image_url"] for v in item.get("variations", [])] + [item["preprocessed_edge_url"]]
-    for v in item.get("variations", []):
-        mv = v.get("multi_views") if isinstance(v, dict) else None
-        if isinstance(mv, dict):
-            for k in ("side", "top", "back", "sheet"):
-                if mv.get(k):
-                    urls.append(mv[k])
     if item["original_image_url"].startswith("/uploads/"):
         urls.append(item["original_image_url"])
     for url in urls:
