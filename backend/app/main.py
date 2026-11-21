@@ -19,7 +19,7 @@ import threading
 import time
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import cv2
 import numpy as np
