@@ -51,24 +51,24 @@ export default function BeforeAfterCompare({ onSelectPresetForStudio }) {
   const handleMouseUp = () => setIsDragging(false);
 
   return (
-    <div className="w-full bg-white rounded-3xl p-6 sm:p-8 border border-[#E8E2D5] shadow-xl shadow-[#8B5A2B]/5">
+    <div className="w-full bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-8 border border-[#E8E2D5] shadow-xl shadow-[#8B5A2B]/5">
       {/* Header and selector */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-6 border-b border-[#F0ECE1] gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-5 sm:pb-6 border-b border-[#F0ECE1] gap-4">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs uppercase font-bold tracking-widest text-[#8B5A2B] bg-[#8B5A2B]/10 px-2.5 py-1 rounded-md">
               Interactive Visualization
             </span>
             <span className="text-xs text-[#78716C]">• Drag slider to compare</span>
           </div>
-          <h3 className="text-2xl font-bold text-[#1A1A1E] mt-1">{active.title}</h3>
-          <p className="text-sm text-[#78716C] mt-0.5">
+          <h3 className="text-xl sm:text-2xl font-bold text-[#1A1A1E] mt-1">{active.title}</h3>
+          <p className="text-xs sm:text-sm text-[#78716C] mt-0.5">
             Preserving structural proportions via <strong className="text-[#8B5A2B]">ControlNet Canny Guidance</strong>
           </p>
         </div>
 
         {/* Preset Selector buttons */}
-        <div className="flex items-center gap-2 bg-[#F5F2EB] p-1.5 rounded-xl border border-[#E4DEC3]/70">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 bg-[#F5F2EB] p-1.5 rounded-xl border border-[#E4DEC3]/70 w-full sm:w-auto">
           {COMPARISON_PRESETS.map((p, idx) => (
             <button
               key={p.id}
@@ -76,7 +76,7 @@ export default function BeforeAfterCompare({ onSelectPresetForStudio }) {
                 setActiveIdx(idx);
                 setSliderPos(50);
               }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                 activeIdx === idx
                   ? 'bg-white text-[#1A1A1E] shadow-sm'
                   : 'text-[#78716C] hover:text-[#1A1A1E]'
@@ -89,12 +89,13 @@ export default function BeforeAfterCompare({ onSelectPresetForStudio }) {
       </div>
 
       {/* Interactive Slider Area */}
-      <div className="mt-6 flex flex-col lg:flex-row gap-8 items-center">
+      <div className="mt-5 sm:mt-6 flex flex-col lg:flex-row gap-6 sm:gap-8 items-center">
         <div
           ref={containerRef}
           onMouseMove={(e) => isDragging && handlePointerMove(e)}
           onMouseDown={handleMouseDown}
           onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
           onTouchMove={(e) => {
             if (e.touches[0]) {
               const rect = containerRef.current.getBoundingClientRect();
@@ -102,7 +103,7 @@ export default function BeforeAfterCompare({ onSelectPresetForStudio }) {
               setSliderPos(Math.max(5, Math.min(95, (x / rect.width) * 100)));
             }
           }}
-          className="relative w-full max-w-[560px] aspect-square rounded-2xl overflow-hidden cursor-ew-resize select-none border border-[#E8E2D5] bg-[#FAF8F5] shadow-inner"
+          className="relative w-full max-w-[560px] aspect-square rounded-2xl overflow-hidden cursor-ew-resize select-none touch-none border border-[#E8E2D5] bg-[#FAF8F5] shadow-inner"
         >
           {/* Right Image: Simulated Photoreal Render with architectural shader */}
           <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-gradient-to-b from-[#EBE5DC] to-[#D5CABE]">
@@ -115,7 +116,7 @@ export default function BeforeAfterCompare({ onSelectPresetForStudio }) {
               }}
             />
             {/* Visual Material Accent Label */}
-            <div className="absolute bottom-4 right-4 bg-[#1A1A1E]/85 backdrop-blur-md text-white text-[11px] font-semibold px-3 py-1.5 rounded-lg shadow-lg flex items-center gap-1.5">
+            <div className="absolute bottom-3 right-3 sm:bottom-4 sm:right-4 bg-[#1A1A1E]/85 backdrop-blur-md text-white text-[10px] sm:text-[11px] font-semibold px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg shadow-lg flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-[#D4A373]" />
               Photoreal 8K Render
             </div>
@@ -126,7 +127,7 @@ export default function BeforeAfterCompare({ onSelectPresetForStudio }) {
             className="absolute inset-0 h-full overflow-hidden bg-white"
             style={{ width: `${sliderPos}%` }}
           >
-            <div className="w-[560px] h-full aspect-square flex items-center justify-center p-4">
+            <div className="w-full h-full flex items-center justify-center p-3 sm:p-4">
               <img
                 src={active.sketch}
                 alt="Pencil Sketch"
@@ -134,7 +135,7 @@ export default function BeforeAfterCompare({ onSelectPresetForStudio }) {
               />
             </div>
             {/* Sketch Label */}
-            <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-md text-[#1A1A1E] text-[11px] font-semibold px-3 py-1.5 rounded-lg shadow-md border border-[#E8E2D5]">
+            <div className="absolute top-3 left-3 sm:top-4 sm:left-4 bg-white/90 backdrop-blur-md text-[#1A1A1E] text-[10px] sm:text-[11px] font-semibold px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg shadow-md border border-[#E8E2D5]">
               Hand-Drawn Sketch
             </div>
           </div>

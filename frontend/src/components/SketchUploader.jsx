@@ -24,7 +24,6 @@ export default function SketchUploader({
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const fileInputRef = useRef(null);
-  const shouldAutoSyncCategoryRef = useRef(false);
 
   // Automatically trigger OpenCV preprocessing when image or thresholds change
   useEffect(() => {
@@ -45,12 +44,6 @@ export default function SketchUploader({
           method: 'canny'
         });
         setPreprocessedData(res);
-
-        // Auto-align category to detected furniture category from CNN sketch analysis
-        if (shouldAutoSyncCategoryRef.current && res?.cnn_features?.detected_category && setCategory) {
-          setCategory(res.cnn_features.detected_category);
-          shouldAutoSyncCategoryRef.current = false;
-        }
       } catch (err) {
         console.error('OpenCV error:', err);
       } finally {
@@ -78,7 +71,6 @@ export default function SketchUploader({
 
     const reader = new FileReader();
     reader.onload = (e) => {
-      shouldAutoSyncCategoryRef.current = true;
       if (onCustomImageUpload) {
         onCustomImageUpload(e.target.result);
       } else {
@@ -133,20 +125,20 @@ export default function SketchUploader({
   }
 
   return (
-    <div className="bg-white rounded-3xl p-6 border border-[#E8E2D5] shadow-xs space-y-6">
+    <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-[#E8E2D5] shadow-xs space-y-5 sm:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <div>
           <span className="text-[11px] font-bold uppercase tracking-wider text-[#8B5A2B]">
             Step 1 • Sketch Input
           </span>
-          <h3 className="text-xl font-bold text-[#1A1A1E]">Hand-Drawn Sketch</h3>
+          <h3 className="text-lg sm:text-xl font-bold text-[#1A1A1E]">Hand-Drawn Sketch</h3>
         </div>
 
         {selectedImage && (
           <button
             onClick={handleClear}
-            className="flex items-center gap-1.5 text-xs text-rose-600 hover:text-rose-700 font-medium px-2.5 py-1.5 rounded-lg hover:bg-rose-50 transition-colors"
+            className="flex items-center gap-1.5 text-xs text-rose-600 hover:text-rose-700 font-medium px-2.5 py-1.5 rounded-lg hover:bg-rose-50 transition-colors shrink-0"
           >
             <Trash2 className="w-3.5 h-3.5" />
             <span>Remove</span>
@@ -156,14 +148,14 @@ export default function SketchUploader({
 
       {/* Preset Quick Samples (Huge for instant grading / test) */}
       <div className="space-y-2">
-        <div className="flex items-center justify-between text-xs text-[#78716C]">
+        <div className="flex flex-wrap items-center justify-between gap-1 text-xs text-[#78716C]">
           <span className="font-semibold text-[#1A1A1E] flex items-center gap-1">
             <Sparkles className="w-3 h-3 text-[#8B5A2B]" />
             Quick Presets (or upload below):
           </span>
           <span className="text-[11px]">Click to load sketch</span>
         </div>
-        <div className="grid grid-cols-5 gap-2">
+        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
           {SAMPLE_SKETCHES.map((s) => (
             <button
               key={s.id}
@@ -232,10 +224,10 @@ export default function SketchUploader({
         /* Image Preview with OpenCV Edge Inspector */
         <div className="space-y-4">
           {/* View Mode Toggle */}
-          <div className="flex items-center justify-between bg-[#F5F2EB] p-1 rounded-xl text-xs gap-1">
+          <div className="grid grid-cols-2 sm:grid-cols-4 bg-[#F5F2EB] p-1 rounded-xl text-xs gap-1">
             <button
               onClick={() => setActiveView('raw')}
-              className={`flex-1 py-1.5 rounded-lg font-medium transition-all ${
+              className={`py-2 sm:py-1.5 px-2 rounded-lg font-medium transition-all ${
                 activeView === 'raw'
                   ? 'bg-white text-[#1A1A1E] shadow-xs font-semibold'
                   : 'text-[#78716C] hover:text-[#1A1A1E]'
@@ -245,29 +237,29 @@ export default function SketchUploader({
             </button>
             <button
               onClick={() => setActiveView('edge')}
-              className={`flex-1 py-1.5 rounded-lg font-medium transition-all flex items-center justify-center gap-1 ${
+              className={`py-2 sm:py-1.5 px-2 rounded-lg font-medium transition-all flex items-center justify-center gap-1 ${
                 activeView === 'edge'
                   ? 'bg-[#1A1A1E] text-white shadow-xs font-semibold'
                   : 'text-[#78716C] hover:text-[#1A1A1E]'
               }`}
             >
-              <span>ControlNet Map</span>
-              {isProcessing && <RefreshCw className="w-3 h-3 animate-spin" />}
+              <span className="truncate">ControlNet Map</span>
+              {isProcessing && <RefreshCw className="w-3 h-3 animate-spin shrink-0" />}
             </button>
             <button
               onClick={() => setActiveView('cnn_heatmap')}
-              className={`flex-1 py-1.5 rounded-lg font-medium transition-all flex items-center justify-center gap-1 ${
+              className={`py-2 sm:py-1.5 px-2 rounded-lg font-medium transition-all flex items-center justify-center gap-1 ${
                 activeView === 'cnn_heatmap'
                   ? 'bg-[#8B5A2B] text-white shadow-xs font-semibold'
                   : 'text-[#78716C] hover:text-[#1A1A1E]'
               }`}
             >
-              <Sparkles className="w-3 h-3" />
-              <span>CNN Pixel Scan</span>
+              <Sparkles className="w-3 h-3 shrink-0" />
+              <span className="truncate">CNN Pixel Scan</span>
             </button>
             <button
               onClick={() => setActiveView('cleaned')}
-              className={`flex-1 py-1.5 rounded-lg font-medium transition-all ${
+              className={`py-2 sm:py-1.5 px-2 rounded-lg font-medium transition-all ${
                 activeView === 'cleaned'
                   ? 'bg-white text-[#1A1A1E] shadow-xs font-semibold'
                   : 'text-[#78716C] hover:text-[#1A1A1E]'
@@ -287,7 +279,7 @@ export default function SketchUploader({
 
             {/* Stats Pill */}
             {activeView === 'cnn_heatmap' && pixelMetrics ? (
-              <div className="absolute bottom-3 left-3 right-3 bg-[#1A1A1E]/85 backdrop-blur-md text-white text-[10px] px-3 py-1.5 rounded-lg flex items-center justify-between shadow-lg">
+              <div className="absolute bottom-3 left-3 right-3 bg-[#1A1A1E]/85 backdrop-blur-md text-white text-[10px] px-3 py-1.5 rounded-lg flex flex-wrap items-center justify-center sm:justify-between gap-x-2 gap-y-0.5 shadow-lg">
                 <span>Dense Scan: <strong>{pixelMetrics.total_pixels_scanned?.toLocaleString()} px</strong></span>
                 <span>•</span>
                 <span>Coverage: <strong>{pixelMetrics.spatial_coverage_percent}%</strong></span>
@@ -347,9 +339,9 @@ export default function SketchUploader({
 
           {/* Category Alignment Warning Callout */}
           {cnnFeatures?.detected_category && cnnFeatures.detected_category !== category && (
-            <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-xl p-3 flex items-center justify-between gap-3 text-xs animate-in fade-in">
-              <div className="flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+            <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 text-xs animate-in fade-in">
+              <div className="flex items-start sm:items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5 sm:mt-0" />
                 <span>
                   Sketch matches <strong>{cnnFeatures.detected_category}</strong>, but studio is set to <strong>{category}</strong>. Align to prevent distorted hybrid renders.
                 </span>
@@ -357,7 +349,7 @@ export default function SketchUploader({
               <button
                 type="button"
                 onClick={() => setCategory(cnnFeatures.detected_category)}
-                className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs whitespace-nowrap transition-colors shadow-xs"
+                className="self-start sm:self-auto px-2.5 py-1.5 sm:py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs whitespace-nowrap transition-colors shadow-xs"
               >
                 Switch to {cnnFeatures.detected_category}
               </button>
@@ -374,7 +366,7 @@ export default function SketchUploader({
               <span className="text-[11px] text-[#78716C] font-mono">[{lowThresh}, {highThresh}]</span>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <div className="flex justify-between text-[11px] text-[#78716C] mb-1">
                   <span>Low Threshold</span>

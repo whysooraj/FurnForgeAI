@@ -36,13 +36,13 @@ export default function CustomizerPanel({
   const currentColorHex = COLORS.find((c) => c.name === color)?.hex || '#8B5A2B';
 
   return (
-    <div className="bg-white rounded-3xl p-6 sm:p-7 border border-[#E8E2D5] shadow-xs space-y-7">
+    <div className="bg-white rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-7 border border-[#E8E2D5] shadow-xs space-y-6 sm:space-y-7">
       {/* Header with Live Active Specification Status */}
       <div>
         <span className="text-[11px] font-bold uppercase tracking-wider text-[#8B5A2B]">
           Step 2 • Material & Style Customization
         </span>
-        <h3 className="text-xl font-bold text-[#1A1A1E]">Design Specification</h3>
+        <h3 className="text-lg sm:text-xl font-bold text-[#1A1A1E]">Design Specification</h3>
 
         {/* Live Specification Pill */}
         <div className="mt-2.5 p-3 rounded-2xl bg-[#FAF8F5] border border-[#EAE4D7] flex flex-wrap items-center justify-between gap-2 text-xs shadow-xs">
@@ -77,7 +77,7 @@ export default function CustomizerPanel({
           <span>Furniture Category</span>
           <span className="text-[11px] font-normal text-[#8B5A2B]">{category}</span>
         </label>
-        <div className="grid grid-cols-5 gap-2">
+        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
           {CATEGORIES.map((cat) => (
             <button
               key={cat.id}
@@ -101,7 +101,7 @@ export default function CustomizerPanel({
           <span>Primary Material</span>
           <span className="text-[11px] font-normal text-[#8B5A2B]">{material}</span>
         </label>
-        <div className="grid grid-cols-5 gap-2">
+        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
           {MATERIALS.map((mat) => {
             const isSel = material === mat.id;
             return (
@@ -168,7 +168,7 @@ export default function CustomizerPanel({
           <span>Design Style</span>
           <span className="text-[11px] font-normal text-[#8B5A2B]">{style}</span>
         </label>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {STYLES.map((st) => (
             <button
               key={st.id}
@@ -191,7 +191,7 @@ export default function CustomizerPanel({
           <span>Surface Finish</span>
           <span className="text-[11px] font-normal text-[#8B5A2B]">{finish}</span>
         </label>
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {FINISHES.map((f) => (
             <button
               key={f.id}

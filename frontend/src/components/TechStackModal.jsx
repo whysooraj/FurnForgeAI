@@ -5,8 +5,8 @@ export default function TechStackModal({ isOpen, onClose }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl max-w-3xl w-full max-h-[90vh] overflow-y-auto border border-[#E8E2D5] shadow-2xl p-6 sm:p-8 space-y-7">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+      <div className="bg-white rounded-2xl sm:rounded-3xl max-w-3xl w-full max-h-[92vh] overflow-y-auto border border-[#E8E2D5] shadow-2xl p-4 sm:p-8 space-y-6 sm:space-y-7">
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-[#F0ECE1]">
           <div className="flex items-center gap-3">

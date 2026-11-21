@@ -4,48 +4,48 @@ import BeforeAfterCompare from './BeforeAfterCompare';
 
 export default function Hero({ onLaunchStudio, onExploreGallery, onSelectPreset }) {
   return (
-    <section className="relative overflow-hidden pt-8 pb-16">
+    <section className="relative overflow-hidden pt-5 pb-12 sm:pt-8 sm:pb-16">
       {/* Background ambient lighting accents */}
       <div className="absolute top-10 left-1/2 -translate-x-1/2 w-full max-w-7xl h-96 bg-gradient-to-b from-[#E8DEC8]/40 to-transparent blur-3xl pointer-events-none -z-10" />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-16">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 space-y-12 sm:space-y-16">
         {/* Main Hero Header */}
-        <div className="text-center max-w-3xl mx-auto space-y-6 pt-4">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#EAE2D2] border border-[#D5C7B0] text-xs font-semibold text-[#5C3818] shadow-xs">
-            <Sparkles className="w-3.5 h-3.5 text-[#8B5A2B]" />
-            <span>Academic Generative AI Project • Stable Diffusion & ControlNet</span>
+        <div className="text-center max-w-3xl mx-auto space-y-5 sm:space-y-6 pt-2 sm:pt-4">
+          <div className="inline-flex items-center gap-2 px-3 sm:px-3.5 py-1.5 rounded-full bg-[#EAE2D2] border border-[#D5C7B0] text-[11px] sm:text-xs font-semibold text-[#5C3818] shadow-xs max-w-full">
+            <Sparkles className="w-3.5 h-3.5 text-[#8B5A2B] shrink-0" />
+            <span className="truncate">Academic Generative AI • Stable Diffusion & ControlNet</span>
           </div>
 
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-[#1A1A1E] tracking-tight leading-[1.15]">
-            Turn Your Sketches Into <br />
+          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold text-[#1A1A1E] tracking-tight leading-[1.15]">
+            Turn Your Sketches Into <br className="hidden sm:inline" />
             <span className="bg-gradient-to-r from-[#8B5A2B] via-[#B87D4B] to-[#5C3818] bg-clip-text text-transparent">
               Photorealistic Furniture
             </span>
           </h1>
 
-          <p className="text-base sm:text-lg text-[#666] leading-relaxed max-w-2xl mx-auto">
+          <p className="text-sm sm:text-lg text-[#666] leading-relaxed max-w-2xl mx-auto">
             FurnForge AI transforms raw hand-drawn pencil drawings into showroom-ready furniture renders. 
             Select designer hardwoods, metals, leathers, and architectural styles with structure-preserving AI.
           </p>
 
-          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 pt-2">
             <button
               onClick={onLaunchStudio}
-              className="px-7 py-3.5 rounded-xl bg-[#8B5A2B] hover:bg-[#744820] text-white font-semibold text-sm tracking-wide flex items-center gap-2 shadow-lg shadow-[#8B5A2B]/25 hover:shadow-xl transition-all"
+              className="px-7 py-3.5 rounded-xl bg-[#8B5A2B] hover:bg-[#744820] text-white font-semibold text-sm tracking-wide flex items-center justify-center gap-2 shadow-lg shadow-[#8B5A2B]/25 hover:shadow-xl transition-all"
             >
               <span>Launch AI Studio</span>
               <ArrowRight className="w-4 h-4" />
             </button>
             <button
               onClick={onExploreGallery}
-              className="px-6 py-3.5 rounded-xl bg-white hover:bg-[#F2ECE1] text-[#1A1A1E] font-semibold text-sm border border-[#E0D7C6] transition-all shadow-xs"
+              className="px-6 py-3.5 rounded-xl bg-white hover:bg-[#F2ECE1] text-[#1A1A1E] font-semibold text-sm border border-[#E0D7C6] transition-all shadow-xs text-center"
             >
               Explore Gallery
             </button>
           </div>
 
           {/* Quick Specs Badges */}
-          <div className="flex flex-wrap items-center justify-center gap-6 pt-6 text-xs text-[#78716C]">
+          <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2.5 sm:gap-6 pt-4 sm:pt-6 text-xs text-[#78716C]">
             <div className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-emerald-500" />
               <span>OpenCV Bilateral Edge Filter</span>
@@ -158,7 +158,7 @@ export default function Hero({ onLaunchStudio, onExploreGallery, onSelectPreset 
         </div>
 
         {/* Step-by-Step Workflow Walkthrough */}
-        <div className="bg-[#F1ECE1] p-8 sm:p-10 rounded-3xl border border-[#E4DEC3] space-y-6">
+        <div className="bg-[#F1ECE1] p-5 sm:p-10 rounded-2xl sm:rounded-3xl border border-[#E4DEC3] space-y-6">
           <div className="max-w-xl space-y-1">
             <span className="text-xs font-bold uppercase tracking-wider text-[#8B5A2B]">Simple 4-Step Process</span>
             <h3 className="text-2xl font-bold text-[#1A1A1E]">From Hand Drawing to Design Catalog</h3>

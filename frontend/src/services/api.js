@@ -23,6 +23,11 @@ const URL_KEYS = new Set([
   'gltf_url',
   'obj_url',
   'texture_url',
+  'front',
+  'side',
+  'top',
+  'back',
+  'sheet',
   'url'
 ]);
 
@@ -148,6 +153,29 @@ export async function generateFurniture(payload, onProgress) {
   }
 
   return normalizeUrls(initData);
+}
+
+export async function getMultiViewStatus(generationId) {
+  const res = await fetch(`${API_BASE}/multiview/status/${encodeURIComponent(generationId)}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Failed to fetch multi-view status' }));
+    throw new Error(err.detail || 'Failed to fetch multi-view status');
+  }
+  const data = await res.json();
+  return normalizeUrls(data);
+}
+
+export async function triggerMultiViewGeneration(generationId) {
+  const res = await fetch(`${API_BASE}/multiview/generate/${encodeURIComponent(generationId)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Failed to trigger multi-view generation' }));
+    throw new Error(err.detail || 'Failed to trigger multi-view generation');
+  }
+  const data = await res.json();
+  return normalizeUrls(data);
 }
 
 export async function getGallery(category = null) {

@@ -52,7 +52,6 @@ NEGATIVE = (
     "sketch, drawing, wireframe, line art, chalk outline, white outline, glowing outline, "
     "pencil, ink lines, sticker, cutout, 2d, flat, cartoon, illustration, wallpaper, "
     "wood wall background, textured wall, speckled noise, grainy wall, extra legs, "
-    "wood floor, parquet floor, reflective floor, mirror reflections, dark floor puddles, glossy flooring, "
     "deformed, distorted, bad proportions, cropped, text, watermark, logo, signature, people, clutter"
 )
 
@@ -91,8 +90,7 @@ def build_prompt(
         parts.append(custom_prompt.strip())
 
     parts.append(
-        f"isolated furniture centered on {backdrop}, clean non-reflective matte studio floor, "
-        "subtle soft ambient contact shadow only, no floor reflection, "
+        f"isolated furniture centered on {backdrop}, soft natural floor contact shadow, "
         "global illumination, realistic 3d architectural render, sharp focus"
     )
     return {"positive_prompt": ", ".join(parts), "negative_prompt": NEGATIVE}

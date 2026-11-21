@@ -252,3 +252,88 @@ class CNNFeatureExtractor:
             "aspect_ratio": round(float(aspect), 2),
             "contour_count": len(contours),
         }
+
+    @staticmethod
+    def _refine_probs_with_geometry(
+        edge_map: np.ndarray,
+        group_probs: Dict[str, float],
+        geo: Dict[str, Any],
+    ):
+        """
+        Combine ResNet-50 logits with structural sketch silhouette geometry:
+        1. Detect a narrow centered top accessory (potted plant/vase) sitting on a
+           flat horizontal tabletop with open separated legs at the bottom -> Table.
+        2. Detect wide horizontal enclosed-base upholstery silhouettes (Aspect >= 1.55)
+           so wide sofas are not misclassified as tables or chairs.
+        """
+        probs = dict(group_probs)
+        accessories: List[str] = []
+        ys, xs = np.where(edge_map > 0)
+        if ys.size < 30:
+            return probs, accessories
+
+        y_min, y_max = int(ys.min()), int(ys.max())
+        x_min, x_max = int(xs.min()), int(xs.max())
+        bw = max(1, x_max - x_min + 1)
+        bh = max(1, y_max - y_min + 1)
+        xc = 0.5 * (x_min + x_max)
+
+        row_spans = np.zeros(bh, dtype=np.float32)
+        row_xL = np.full(bh, x_min, dtype=np.float32)
+        row_xR = np.full(bh, x_max, dtype=np.float32)
+        for y in range(y_min, y_max + 1):
+            cols = np.where(edge_map[y] > 0)[0]
+            if cols.size >= 2:
+                idx = y - y_min
+                row_xL[idx] = float(cols[0])
+                row_xR[idx] = float(cols[-1])
+                row_spans[idx] = float(cols[-1] - cols[0] + 1)
+
+        # Check if the bottom 12% of the sketch has an open gap in the center 36% (legs vs closed sofa base)
+        bot_y0 = max(y_min, y_max - max(6, int(0.12 * bh)))
+        mid_x0 = int(x_min + 0.32 * bw)
+        mid_x1 = int(x_max - 0.32 * bw)
+        bot_center_ink = int(np.count_nonzero(edge_map[bot_y0 : y_max + 1, mid_x0:mid_x1]))
+        has_open_leg_bottom = bot_center_ink < max(12, int(0.015 * bw * (y_max - bot_y0 + 1)))
+
+        # Strictly detect a narrow centered top object (< 0.42 * bw, confined to middle region)
+        # followed by a sharp step-jump to a wide horizontal tabletop slab (>= 0.78 * bw)
+        narrow_end = None
+        for dy in range(max(12, int(0.16 * bh)), int(0.55 * bh)):
+            upper_spans = row_spans[:dy]
+            active_mask = upper_spans > 2
+            if int(np.sum(active_mask)) < max(8, int(0.12 * bh)):
+                continue
+            p90_upper = float(np.percentile(upper_spans[active_mask], 90))
+            min_xL_upper = float(np.percentile(row_xL[:dy][active_mask], 10))
+            max_xR_upper = float(np.percentile(row_xR[:dy][active_mask], 90))
+            in_center_zone = (min_xL_upper >= x_min + 0.22 * bw) and (max_xR_upper <= x_max - 0.22 * bw)
+
+            slab_band = row_spans[dy : min(bh, dy + max(8, int(0.12 * bh)))]
+            max_slab = float(slab_band.max()) if slab_band.size else 0.0
+            if (
+                in_center_zone
+                and p90_upper < 0.42 * bw
+                and max_slab >= 0.78 * bw
+                and (max_slab - p90_upper) >= 0.36 * bw
+                and has_open_leg_bottom
+            ):
+                narrow_end = dy
+                break
+
+        max_p = max(probs.values()) if probs else 0.1
+        if narrow_end is not None:
+            body_bh = max(1, bh - narrow_end)
+            body_ar = bw / float(body_bh)
+            if body_ar >= 1.25:
+                probs["Table"] = max(probs.get("Table", 0.0), max_p * 4.5 + 0.12)
+                accessories.append("with a small potted plant on top")
+                geo["aspect_ratio"] = round(float(body_ar), 2)
+                return probs, accessories
+
+        # Wide horizontal enclosed silhouette (Aspect >= 1.55 with closed bottom base) -> Sofa
+        overall_ar = bw / float(bh)
+        if overall_ar >= 1.55 and not has_open_leg_bottom:
+            probs["Sofa"] = max(probs.get("Sofa", 0.0), max_p * 2.2 + 0.08)
+
+        return probs, accessories

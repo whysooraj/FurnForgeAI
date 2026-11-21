@@ -8,8 +8,8 @@ export default function AIInspectorModal({ isOpen, onClose, data }) {
   const scores = cnn.all_category_scores || {};
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-[#E8E2D5] shadow-2xl p-6 sm:p-8 space-y-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+      <div className="bg-white rounded-2xl sm:rounded-3xl max-w-2xl w-full max-h-[92vh] overflow-y-auto border border-[#E8E2D5] shadow-2xl p-4 sm:p-8 space-y-5 sm:space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-[#F0ECE1]">
           <div className="flex items-center gap-3">
@@ -114,7 +114,7 @@ export default function AIInspectorModal({ isOpen, onClose, data }) {
                 <span className="text-[11px] font-bold text-[#1A1A1E] block">
                   Dense Pixel-by-Pixel Convolutional Activation Map (512x512)
                 </span>
-                <div className="flex items-center gap-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                   <div className="w-32 h-32 rounded-xl overflow-hidden border border-[#D5C7B0] bg-black shrink-0">
                     <img src={cnn.b64_heatmap} alt="CNN Heatmap" className="w-full h-full object-contain" />
                   </div>

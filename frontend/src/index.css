@@ -12,6 +12,7 @@
     --charcoal-700: #26262B;
   }
 
+  html,
   body {
     background-color: #F8F6F0;
     color: #1A1A1E;
@@ -19,6 +20,7 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overflow-x: hidden;
+    max-width: 100%;
   }
 }
 

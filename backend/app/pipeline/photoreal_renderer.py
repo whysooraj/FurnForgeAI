@@ -17,6 +17,8 @@ import time
 import cv2
 import numpy as np
 
+from app.pipeline.multiview_renderer import generate_multi_views
+
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 COLOR_PALETTE = {
@@ -109,11 +111,19 @@ def render_specification(
             render_img = np.ones((512, 512, 3), dtype=np.uint8) * 240
             mask_img = np.ones((512, 512), dtype=np.uint8) * 255
 
+        if len(render_img.shape) == 2:
+            render_img = cv2.cvtColor(render_img, cv2.COLOR_GRAY2BGR)
+        if len(mask_img.shape) == 3:
+            mask_img = cv2.cvtColor(mask_img, cv2.COLOR_BGR2GRAY)
+
+        h, w = render_img.shape[:2]
+        if mask_img.shape[:2] != (h, w):
+            mask_img = cv2.resize(mask_img, (w, h), interpolation=cv2.INTER_NEAREST)
+
         # Designer palette target color (BGR)
         r_t, g_t, b_t = COLOR_PALETTE.get(color, (82, 56, 38))
         target_bgr = np.array([b_t, g_t, r_t], dtype=np.float32)
 
-        h, w, _ = render_img.shape
         yy, xx = np.mgrid[0:h, 0:w]
 
         # Soft boundary mask
@@ -170,6 +180,48 @@ def render_specification(
         # Composite over studio background preserving floor contact shadow
         composite = (render_img.astype(np.float32) * (1.0 - mask_f) + colored * mask_f).astype(np.uint8)
         cv2.imwrite(str(out_path), composite)
+    else:
+        composite = None
+        mask_img = None
+
+    outputs_dir = BASE_DIR / "outputs"
+    side_path = outputs_dir / f"{spec_id}_side.png"
+    top_path = outputs_dir / f"{spec_id}_top.png"
+    back_path = outputs_dir / f"{spec_id}_back.png"
+    sheet_path = outputs_dir / f"{spec_id}_multiview.png"
+
+    if not (side_path.exists() and top_path.exists() and back_path.exists() and sheet_path.exists()):
+        if composite is None:
+            composite = cv2.imread(str(out_path))
+        if mask_img is None:
+            base_info = BASES[cat_key]
+            mask_img = cv2.imread(str(base_info["mask"]), cv2.IMREAD_GRAYSCALE)
+            if mask_img is None:
+                sample_mask = BASE_DIR / "sample_sketches" / f"mask_{cat_key}.png"
+                if sample_mask.exists():
+                    mask_img = cv2.imread(str(sample_mask), cv2.IMREAD_GRAYSCALE)
+        multi_views = generate_multi_views(
+            front_bgr=composite,
+            prefix=spec_id,
+            category=category,
+            output_dir=outputs_dir,
+            front_url=f"/outputs/{out_name}",
+            mask_gray=mask_img,
+        )
+    else:
+        multi_views = {
+            "front": f"/outputs/{out_name}",
+            "side": f"/outputs/{spec_id}_side.png",
+            "top": f"/outputs/{spec_id}_top.png",
+            "back": f"/outputs/{spec_id}_back.png",
+            "sheet": f"/outputs/{spec_id}_multiview.png",
+            "views": [
+                {"id": "front", "label": "Front View", "angle": "0° Front", "image_url": f"/outputs/{out_name}"},
+                {"id": "side", "label": "Side View", "angle": "90° Side", "image_url": f"/outputs/{spec_id}_side.png"},
+                {"id": "top", "label": "Top View", "angle": "90° Top", "image_url": f"/outputs/{spec_id}_top.png"},
+                {"id": "back", "label": "Back View", "angle": "180° Back", "image_url": f"/outputs/{spec_id}_back.png"},
+            ],
+        }
 
     elapsed = round(time.time() - t0, 3)
     base_info = BASES[cat_key]
@@ -185,12 +237,14 @@ def render_specification(
         "primary_image_url": f"/outputs/{out_name}",
         "original_image_url": base_info["sketch"],
         "preprocessed_edge_url": base_info["edge"],
+        "multi_views": multi_views,
         "variations": [
             {
                 "variation_index": 0,
                 "image_url": f"/outputs/{out_name}",
                 "style_variant": f"Photoreal {style} {material} ({finish})",
                 "seed": 42,
+                "multi_views": multi_views,
             }
         ],
         "execution_time": max(0.015, elapsed),

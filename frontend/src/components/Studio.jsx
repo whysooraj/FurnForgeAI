@@ -221,12 +221,12 @@ export default function Studio({ selectedPresetId }) {
   };
 
   return (
-    <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-in fade-in duration-300">
+    <section className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-5 sm:py-8 space-y-6 sm:space-y-8 animate-in fade-in duration-300">
       {/* Workspace Header */}
-      <div className="border-b border-[#E8E2D5] pb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="border-b border-[#E8E2D5] pb-5 sm:pb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
           <span className="text-xs font-bold uppercase tracking-wider text-[#8B5A2B]">Interactive Workspace</span>
-          <h2 className="text-3xl font-bold text-[#1A1A1E]">AI Furniture Studio</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold text-[#1A1A1E]">AI Furniture Studio</h2>
           <p className="text-xs text-[#78716C] mt-1">
             Real-time material & palette specification conditioned on OpenCV Canny and ControlNet geometric boundaries.
           </p>
@@ -249,9 +249,9 @@ export default function Studio({ selectedPresetId }) {
       )}
 
       {/* Main Studio Grid: Side-by-Side Dual Column */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
         {/* Left Column: Sketch Input (Step 1) & Customizer Controls (Step 2) */}
-        <div className="lg:col-span-6 space-y-6">
+        <div className="lg:col-span-6 space-y-6 min-w-0">
           <SketchUploader
             selectedImage={selectedImage}
             setSelectedImage={handleCustomImageUpload}
@@ -298,8 +298,8 @@ export default function Studio({ selectedPresetId }) {
           />
         </div>
 
-        {/* Right Column: Live Photoreal Response (Step 3) - STICKY so it's always beside the options! */}
-        <div className="lg:col-span-6 sticky top-20 self-start space-y-6">
+        {/* Right Column: Live Photoreal Response (Step 3) - STICKY on desktop so it stays beside options */}
+        <div className="lg:col-span-6 lg:sticky lg:top-24 self-start space-y-6 min-w-0">
           <ResultsViewer
             resultData={resultData}
             isGenerating={isGenerating}
