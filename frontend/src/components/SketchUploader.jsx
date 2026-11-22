@@ -1,7 +1,21 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { UploadCloud, Image as ImageIcon, Trash2, Eye, Sliders, RefreshCw, CheckCircle, AlertCircle, Sparkles } from 'lucide-react';
+import {
+  UploadCloud,
+  Image as ImageIcon,
+  Trash2,
+  Eye,
+  Sliders,
+  RefreshCw,
+  CheckCircle,
+  AlertCircle,
+  Sparkles,
+  PenTool,
+  Layers,
+  ArrowRight
+} from 'lucide-react';
 import { SAMPLE_SKETCHES } from '../utils/presets';
 import { preprocessSketch } from '../services/api';
+import SketchCanvas from './SketchCanvas';
 
 export default function SketchUploader({
   selectedImage,
@@ -19,12 +33,22 @@ export default function SketchUploader({
   onCustomImageUpload,
   onSelectSamplePreset
 }) {
+  // 3 Input Modes: 'presets' | 'upload' | 'draw'
+  const [inputMode, setInputMode] = useState(() => (selectedSampleId ? 'presets' : 'upload'));
+  const [sourceType, setSourceType] = useState(() => (selectedSampleId ? 'preset' : selectedImage ? 'upload' : 'preset'));
   const [dragOver, setDragOver] = useState(false);
-  const [activeView, setActiveView] = useState('raw'); // 'raw', 'edge', 'cleaned'
+  const [activeView, setActiveView] = useState('raw'); // 'raw', 'edge', 'cnn_heatmap', 'cleaned'
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const fileInputRef = useRef(null);
   const shouldAutoSyncCategoryRef = useRef(false);
+
+  // Keep sourceType in sync with preset selection
+  useEffect(() => {
+    if (selectedSampleId) {
+      setSourceType('preset');
+    }
+  }, [selectedSampleId]);
 
   // Automatically trigger OpenCV preprocessing when image or thresholds change
   useEffect(() => {
@@ -79,6 +103,7 @@ export default function SketchUploader({
     const reader = new FileReader();
     reader.onload = (e) => {
       shouldAutoSyncCategoryRef.current = true;
+      setSourceType('upload');
       if (onCustomImageUpload) {
         onCustomImageUpload(e.target.result);
       } else {
@@ -98,6 +123,7 @@ export default function SketchUploader({
   };
 
   const handleSelectSample = (sample) => {
+    setSourceType('preset');
     if (onSelectSamplePreset) {
       onSelectSamplePreset(sample);
     } else {
@@ -109,10 +135,23 @@ export default function SketchUploader({
     }
   };
 
+  // Called when user hits "Use as Furniture Sketch" on the interactive whiteboard
+  const handleDrawingApplied = (base64DataUrl) => {
+    shouldAutoSyncCategoryRef.current = true;
+    setSourceType('draw');
+    if (onCustomImageUpload) {
+      onCustomImageUpload(base64DataUrl);
+    } else {
+      setSelectedImage(base64DataUrl);
+      setSelectedSampleId?.(null);
+    }
+  };
+
   const handleClear = () => {
     setSelectedImage(null);
     setSelectedSampleId(null);
     setPreprocessedData(null);
+    setSourceType(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -140,7 +179,7 @@ export default function SketchUploader({
           <span className="text-[11px] font-bold uppercase tracking-wider text-[#8B5A2B]">
             Step 1 • Sketch Input
           </span>
-          <h3 className="text-lg sm:text-xl font-bold text-[#1A1A1E]">Hand-Drawn Sketch</h3>
+          <h3 className="text-lg sm:text-xl font-bold text-[#1A1A1E]">Furniture Sketch Input</h3>
         </div>
 
         {selectedImage && (
@@ -149,49 +188,58 @@ export default function SketchUploader({
             className="flex items-center gap-1.5 text-xs text-rose-600 hover:text-rose-700 font-medium px-2.5 py-1.5 rounded-lg hover:bg-rose-50 transition-colors shrink-0"
           >
             <Trash2 className="w-3.5 h-3.5" />
-            <span>Remove</span>
+            <span>Reset Input</span>
           </button>
         )}
       </div>
 
-      {/* Preset Quick Samples (Huge for instant grading / test) */}
-      <div className="space-y-2">
-        <div className="flex flex-wrap items-center justify-between gap-1 text-xs text-[#78716C]">
-          <span className="font-semibold text-[#1A1A1E] flex items-center gap-1">
-            <Sparkles className="w-3 h-3 text-[#8B5A2B]" />
-            Quick Presets (or upload below):
-          </span>
-          <span className="text-[11px]">Click to load sketch</span>
-        </div>
-        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-          {SAMPLE_SKETCHES.map((s) => (
-            <button
-              key={s.id}
-              onClick={() => handleSelectSample(s)}
-              className={`p-2 rounded-xl text-center border transition-all flex flex-col items-center gap-1 ${
-                selectedSampleId === s.id
-                  ? 'border-[#8B5A2B] bg-[#8B5A2B]/10 text-[#5C3818] font-bold shadow-xs'
-                  : 'border-[#EAE4D7] bg-[#FAF8F5] text-[#555] hover:border-[#8B5A2B]/50 hover:bg-white'
-              }`}
-            >
-              <div className="w-8 h-8 rounded-lg overflow-hidden bg-white border border-[#E8E2D5] p-0.5 flex items-center justify-center">
-                <img src={s.url} alt={s.name} className="w-full h-full object-contain" />
-              </div>
-              <span className="text-[11px] font-medium leading-tight truncate w-full">{s.category}</span>
-            </button>
-          ))}
-        </div>
-
-        {/* Upload Custom Sketch Quick Button */}
+      {/* 3-Way Mode Tabs: Presets | Upload | Sketch */}
+      <div className="grid grid-cols-3 bg-[#F4EFE6] p-1.5 rounded-2xl border border-[#E3D9C4] gap-1.5">
+        {/* Option 1: Preset Sketches */}
         <button
-          onClick={() => fileInputRef.current?.click()}
-          className="w-full py-2 px-3 border border-dashed border-[#D5C7B0] hover:border-[#8B5A2B] rounded-xl text-xs text-[#78716C] hover:text-[#5C3818] bg-[#FAF8F5] hover:bg-white flex items-center justify-center gap-1.5 transition-colors"
+          type="button"
+          onClick={() => setInputMode('presets')}
+          className={`py-2 px-2 sm:px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+            inputMode === 'presets'
+              ? 'bg-white text-[#5C3818] shadow-xs border border-[#DFD3BE]'
+              : 'text-[#78716C] hover:text-[#1A1A1E] hover:bg-white/50'
+          }`}
         >
-          <UploadCloud className="w-3.5 h-3.5 text-[#8B5A2B]" />
-          <span>Or click here to upload your own custom sketch</span>
+          <Sparkles className="w-3.5 h-3.5 text-[#8B5A2B] shrink-0" />
+          <span className="truncate">Sample Presets</span>
+        </button>
+
+        {/* Option 2: Upload File */}
+        <button
+          type="button"
+          onClick={() => setInputMode('upload')}
+          className={`py-2 px-2 sm:px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all ${
+            inputMode === 'upload'
+              ? 'bg-white text-[#5C3818] shadow-xs border border-[#DFD3BE]'
+              : 'text-[#78716C] hover:text-[#1A1A1E] hover:bg-white/50'
+          }`}
+        >
+          <UploadCloud className="w-3.5 h-3.5 text-[#8B5A2B] shrink-0" />
+          <span className="truncate">Upload File</span>
+        </button>
+
+        {/* Option 3: Sketch Furniture Whiteboard */}
+        <button
+          type="button"
+          onClick={() => setInputMode('draw')}
+          className={`py-2 px-2 sm:px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all relative ${
+            inputMode === 'draw'
+              ? 'bg-[#8B5A2B] text-white shadow-xs'
+              : 'text-[#78716C] hover:text-[#1A1A1E] hover:bg-white/50'
+          }`}
+        >
+          <PenTool className="w-3.5 h-3.5 shrink-0" />
+          <span className="truncate">Sketch Furniture</span>
+          <span className="hidden sm:inline-block w-1.5 h-1.5 rounded-full bg-amber-300 animate-pulse ml-0.5" />
         </button>
       </div>
 
+      {/* Hidden File Input for Upload Option */}
       <input
         ref={fileInputRef}
         type="file"
@@ -200,40 +248,123 @@ export default function SketchUploader({
         onChange={(e) => e.target.files && handleFileProcess(e.target.files[0])}
       />
 
-      {/* Upload Zone / Canvas Preview */}
-      {!selectedImage ? (
-        <div
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragOver(true);
-          }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={handleDrop}
-          onClick={() => fileInputRef.current?.click()}
-          className={`border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-3 ${
-            dragOver
-              ? 'border-[#8B5A2B] bg-[#8B5A2B]/5 scale-[0.99]'
-              : 'border-[#D9D1C1] bg-[#FAF8F5] hover:border-[#8B5A2B] hover:bg-white'
-          }`}
-        >
-          <div className="w-14 h-14 rounded-2xl bg-[#EAE2D2] flex items-center justify-center text-[#8B5A2B] shadow-inner">
-            <UploadCloud className="w-7 h-7 stroke-[1.8]" />
+      {/* Mode View 1: Preset Sketches */}
+      {inputMode === 'presets' && (
+        <div className="space-y-3 animate-in fade-in duration-200">
+          <div className="flex items-center justify-between text-xs text-[#78716C]">
+            <span className="font-semibold text-[#1A1A1E]">Select Curated Furniture Preset:</span>
+            <span className="text-[11px]">Click any sample to load</span>
           </div>
-          <div className="space-y-1">
-            <p className="text-sm font-semibold text-[#1A1A1E]">
-              Drop furniture sketch here, or <span className="text-[#8B5A2B] underline">browse files</span>
-            </p>
-            <p className="text-xs text-[#78716C]">
-              Supports PNG, JPG, JPEG • Max 10MB • Clear pencil or pen lines recommended
-            </p>
+
+          <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+            {SAMPLE_SKETCHES.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => handleSelectSample(s)}
+                className={`p-2 rounded-xl text-center border transition-all flex flex-col items-center gap-1.5 ${
+                  selectedSampleId === s.id
+                    ? 'border-[#8B5A2B] bg-[#8B5A2B]/10 text-[#5C3818] font-bold shadow-xs ring-1 ring-[#8B5A2B]/30'
+                    : 'border-[#EAE4D7] bg-[#FAF8F5] text-[#555] hover:border-[#8B5A2B]/50 hover:bg-white'
+                }`}
+              >
+                <div className="w-10 h-10 rounded-lg overflow-hidden bg-white border border-[#E8E2D5] p-1 flex items-center justify-center">
+                  <img src={s.url} alt={s.name} className="w-full h-full object-contain" />
+                </div>
+                <span className="text-[11px] font-medium leading-tight truncate w-full">{s.category}</span>
+              </button>
+            ))}
           </div>
         </div>
-      ) : (
-        /* Image Preview with OpenCV Edge Inspector */
-        <div className="space-y-4">
+      )}
+
+      {/* Mode View 2: Upload File */}
+      {inputMode === 'upload' && (
+        <div className="space-y-3 animate-in fade-in duration-200">
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragOver(true);
+            }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={handleDrop}
+            onClick={() => fileInputRef.current?.click()}
+            className={`border-2 border-dashed rounded-2xl p-7 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-3 ${
+              dragOver
+                ? 'border-[#8B5A2B] bg-[#8B5A2B]/5 scale-[0.99]'
+                : 'border-[#D9D1C1] bg-[#FAF8F5] hover:border-[#8B5A2B] hover:bg-white'
+            }`}
+          >
+            <div className="w-12 h-12 rounded-2xl bg-[#EAE2D2] flex items-center justify-center text-[#8B5A2B] shadow-inner">
+              <UploadCloud className="w-6 h-6 stroke-[1.8]" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-[#1A1A1E]">
+                Drop furniture sketch here, or <span className="text-[#8B5A2B] underline">browse files</span>
+              </p>
+              <p className="text-xs text-[#78716C]">
+                Supports PNG, JPG, JPEG • Max 10MB • Clear pencil or pen lines recommended
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mode View 3: Sketch Furniture Whiteboard */}
+      {inputMode === 'draw' && (
+        <div className="space-y-3 animate-in fade-in duration-200">
+          <div className="flex items-center justify-between text-xs text-[#78716C]">
+            <span className="font-semibold text-[#1A1A1E] flex items-center gap-1.5">
+              <PenTool className="w-3.5 h-3.5 text-[#8B5A2B]" />
+              Interactive Whiteboard Studio:
+            </span>
+            <span className="text-[11px] text-[#8B5A2B] font-medium">Draw with pen & eraser</span>
+          </div>
+
+          <SketchCanvas
+            onApplySketch={handleDrawingApplied}
+            initialImage={sourceType === 'draw' ? selectedImage : null}
+          />
+        </div>
+      )}
+
+      {/* Active Source Pill Callout */}
+      {selectedImage && (
+        <div className="flex items-center justify-between bg-[#F7F4EE] border border-[#E6DFC9] px-3 py-2 rounded-xl text-xs text-[#5C3818]">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+            <span className="font-medium">
+              Current Sketch Input:{' '}
+              <strong className="text-[#1A1A1E]">
+                {sourceType === 'draw'
+                  ? 'Hand-Drawn Whiteboard Sketch'
+                  : sourceType === 'upload'
+                  ? 'Uploaded File'
+                  : `Preset (${category || 'Sample'})`}
+              </strong>
+            </span>
+          </div>
+
+          {sourceType === 'draw' && inputMode !== 'draw' && (
+            <button
+              type="button"
+              onClick={() => setInputMode('draw')}
+              className="text-[#8B5A2B] hover:text-[#5C3818] font-bold flex items-center gap-1 underline underline-offset-2 transition-colors"
+            >
+              <span>Edit Drawing</span>
+              <ArrowRight className="w-3 h-3" />
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* OpenCV & CNN Edge Inspector & Live Preview (Visible when image is loaded) */}
+      {selectedImage && (
+        <div className="space-y-4 pt-1">
           {/* View Mode Toggle */}
           <div className="grid grid-cols-2 sm:grid-cols-4 bg-[#F5F2EB] p-1 rounded-xl text-xs gap-1">
             <button
+              type="button"
               onClick={() => setActiveView('raw')}
               className={`py-2 sm:py-1.5 px-2 rounded-lg font-medium transition-all ${
                 activeView === 'raw'
@@ -241,9 +372,10 @@ export default function SketchUploader({
                   : 'text-[#78716C] hover:text-[#1A1A1E]'
               }`}
             >
-              Sketch
+              Raw Sketch
             </button>
             <button
+              type="button"
               onClick={() => setActiveView('edge')}
               className={`py-2 sm:py-1.5 px-2 rounded-lg font-medium transition-all flex items-center justify-center gap-1 ${
                 activeView === 'edge'
@@ -255,6 +387,7 @@ export default function SketchUploader({
               {isProcessing && <RefreshCw className="w-3 h-3 animate-spin shrink-0" />}
             </button>
             <button
+              type="button"
               onClick={() => setActiveView('cnn_heatmap')}
               className={`py-2 sm:py-1.5 px-2 rounded-lg font-medium transition-all flex items-center justify-center gap-1 ${
                 activeView === 'cnn_heatmap'
@@ -266,6 +399,7 @@ export default function SketchUploader({
               <span className="truncate">CNN Pixel Scan</span>
             </button>
             <button
+              type="button"
               onClick={() => setActiveView('cleaned')}
               className={`py-2 sm:py-1.5 px-2 rounded-lg font-medium transition-all ${
                 activeView === 'cleaned'
@@ -277,31 +411,33 @@ export default function SketchUploader({
             </button>
           </div>
 
-          {/* Canvas View Container */}
-          <div className="relative aspect-square w-full rounded-2xl overflow-hidden border border-[#E8E2D5] bg-[#FAF8F5] flex items-center justify-center p-2 shadow-inner">
-            <img
-              src={currentDisplay}
-              alt="Furniture Sketch"
-              className="max-h-full max-w-full object-contain transition-opacity duration-200"
-            />
+          {/* Canvas View Container (Only show preview image if not currently drawing, to prevent redundancy) */}
+          {inputMode !== 'draw' && (
+            <div className="relative aspect-square w-full rounded-2xl overflow-hidden border border-[#E8E2D5] bg-[#FAF8F5] flex items-center justify-center p-2 shadow-inner">
+              <img
+                src={currentDisplay}
+                alt="Furniture Sketch Input"
+                className="max-h-full max-w-full object-contain transition-opacity duration-200"
+              />
 
-            {/* Stats Pill */}
-            {activeView === 'cnn_heatmap' && pixelMetrics ? (
-              <div className="absolute bottom-3 left-3 right-3 bg-[#1A1A1E]/85 backdrop-blur-md text-white text-[10px] px-3 py-1.5 rounded-lg flex flex-wrap items-center justify-center sm:justify-between gap-x-2 gap-y-0.5 shadow-lg">
-                <span>Dense Scan: <strong>{pixelMetrics.total_pixels_scanned?.toLocaleString()} px</strong></span>
-                <span>•</span>
-                <span>Coverage: <strong>{pixelMetrics.spatial_coverage_percent}%</strong></span>
-                <span>•</span>
-                <span>Peak: <strong>({pixelMetrics.peak_activation_coordinate?.x}, {pixelMetrics.peak_activation_coordinate?.y})</strong></span>
-              </div>
-            ) : preprocessedData ? (
-              <div className="absolute bottom-3 left-3 bg-[#1A1A1E]/80 backdrop-blur-md text-white text-[10px] px-2.5 py-1 rounded-lg flex items-center gap-2">
-                <span>Density: <strong>{preprocessedData.edge_density_percent}%</strong></span>
-                <span>•</span>
-                <span>Contours: <strong>{preprocessedData.contour_count}</strong></span>
-              </div>
-            ) : null}
-          </div>
+              {/* Stats Pill */}
+              {activeView === 'cnn_heatmap' && pixelMetrics ? (
+                <div className="absolute bottom-3 left-3 right-3 bg-[#1A1A1E]/85 backdrop-blur-md text-white text-[10px] px-3 py-1.5 rounded-lg flex flex-wrap items-center justify-center sm:justify-between gap-x-2 gap-y-0.5 shadow-lg">
+                  <span>Dense Scan: <strong>{pixelMetrics.total_pixels_scanned?.toLocaleString()} px</strong></span>
+                  <span>•</span>
+                  <span>Coverage: <strong>{pixelMetrics.spatial_coverage_percent}%</strong></span>
+                  <span>•</span>
+                  <span>Peak: <strong>({pixelMetrics.peak_activation_coordinate?.x}, {pixelMetrics.peak_activation_coordinate?.y})</strong></span>
+                </div>
+              ) : preprocessedData ? (
+                <div className="absolute bottom-3 left-3 bg-[#1A1A1E]/80 backdrop-blur-md text-white text-[10px] px-2.5 py-1 rounded-lg flex items-center gap-2">
+                  <span>Density: <strong>{preprocessedData.edge_density_percent}%</strong></span>
+                  <span>•</span>
+                  <span>Contours: <strong>{preprocessedData.contour_count}</strong></span>
+                </div>
+              ) : null}
+            </div>
+          )}
 
           {/* Live ResNet-50 CNN Sketch Analysis Card */}
           {cnnFeatures && (
@@ -318,6 +454,7 @@ export default function SketchUploader({
                   cnnFeatures.detected_category !== category &&
                   setCategory && (
                     <button
+                      type="button"
                       onClick={() => setCategory(cnnFeatures.detected_category)}
                       className="px-2 py-0.5 rounded-md bg-[#8B5A2B] hover:bg-[#724822] text-white text-[10px] font-semibold transition-colors"
                       title="Match category to CNN sketch analysis"
@@ -418,4 +555,3 @@ export default function SketchUploader({
     </div>
   );
 }
-

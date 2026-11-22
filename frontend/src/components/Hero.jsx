@@ -167,9 +167,9 @@ export default function Hero({ onLaunchStudio, onExploreGallery, onSelectPreset 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             <div className="space-y-2">
               <span className="text-2xl font-black text-[#8B5A2B]/30">01</span>
-              <h5 className="font-bold text-sm text-[#1A1A1E]">Upload or Select Sketch</h5>
+              <h5 className="font-bold text-sm text-[#1A1A1E]">Draw, Upload, or Pick Sketch</h5>
               <p className="text-xs text-[#666] leading-relaxed">
-                Drop any hand-drawn pencil, pen, or digital tablet sketch in PNG or JPG format.
+                Sketch directly on the built-in digital whiteboard, drop an image file, or select from curated presets.
               </p>
             </div>
 

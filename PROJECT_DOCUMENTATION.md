@@ -55,11 +55,18 @@ The following diagram illustrates the complete dataflow and operational lifecycl
 │                                     FURNFORGE AI CORE ENGINE                                      │
 +───────────────────────────────────────────────────────────────────────────────────────────────────+
 
-  [ User Client: React 19 + Tailwind v4 ]
+  [ Multi-Modal Input Layer: React 19 + Tailwind v4 ]
+         │  ├── Option 1: Preset Library (Chair, Sofa, Table, Desk, Lamp)
+         │  ├── Option 2: File Upload (PNG/JPG/WebP up to 10MB)
+         │  └── Option 3: Interactive Whiteboard Studio (SketchCanvas.jsx)
+         │        ├── Real-time Marker Pen & Eraser (Dedicated sizing controls & presets)
+         │        ├── 1:1 Subpixel Screen Mapping (Mouse pointer = drawing marker nib)
+         │        ├── Entire-Screen Fullscreen Mode (Zero-scrollbar full-bleed canvas)
+         │        └── Auto-Bounding Box Segmentation & Centered 512x512 HD Export
          │
-         │  1. Hand Sketch Upload (Base64) + Parameter Selections (Wood, Emerald, Modern, Glossy)
+         │  Sketch Base64 Payload + PBR Specs (Material, Color, Style, Finish)
          ▼
-  [ FastAPI Async REST Server (Port 8005) ]
+  [ FastAPI Async REST Server (Port 8000) ]
          │
          ├──► [ Stage 1: Classical Computer Vision Preprocessing (OpenCV) ]
          │       ├── Flat-Field Background Division (cv2.divide) -> Eliminates Paper Shadows
@@ -83,19 +90,26 @@ The following diagram illustrates the complete dataflow and operational lifecycl
          │       └── Assigns contrasting studio cyclorama backdrop (Dark vs Off-White studio)
          │
          ├──► [ Stage 4: Generative Diffusion Engine (PyTorch + Diffusers) ]
-         │       ├── Structural ControlNet (lllyasviel/control_v11p_sd15_scribble)
+         │       ├── Structural ControlNet (lllyasviel/control_v11p_sd15_canny / scribble)
          │       │     └── Injects zero-convolution features into UNet skip-connections
          │       ├── Guidance Release Schedule: control_guidance_end = 0.72 (Paints solid 3D surfaces!)
          │       ├── Base Latent Diffusion: Stable Diffusion 1.5 (SDPA Attention Vectorization)
          │       ├── Latent Consistency Acceleration: LCM-LoRA Distillation (fused into UNet)
          │       └── Fast Multi-pass Inference: 6 steps @ 384x384 -> Lanczos 512x512 Upscaling
          │
+         ├──► [ Stage 5: Single-View 3D Neural Reconstruction (TripoSR / Hunyuan3D) ]
+         │       ├── Vision Transformer Triplane Density Evaluation (stabilityai/TripoSR)
+         │       ├── Marching Cubes Isosurface Polygonization (160x160x160 voxel resolution)
+         │       ├── Automated UV Unwrapping & 1024x1024 PBR Texture Atlas Projection
+         │       └── High-VRAM Fallback: Hunyuan3D-2mini DiT (Octree 380)
+         │
          ▼
-  [ Stage 5: Output Storage, Job Dispatcher & SQLite Repository ]
+  [ Stage 6: Output Storage, Job Dispatcher & Presentation Layer ]
          ├── Background Async Worker updates job progress (0% -> 100%)
-         ├── Saves 8K Render (`outputs/render_*.png`) & Condition Map (`outputs/edge_*.png`)
+         ├── Saves Photoreal Render (`outputs/render_*.png`), Edge Map (`outputs/edge_*.png`) & 3D GLB
          ├── Persists Metadata to SQLite Database (`furnforge.db`)
-         └── Emits Completed Payload to Client with Interactive Split-Slider & CNN Inspector
+         ├── Three.js Orbit 3D Model Viewer (`Model3DViewer.jsx`)
+         └── WebXR Augmented Reality Floor Plane Projection (`WebXRARScene.jsx`)
 ```
 
 ---
@@ -219,7 +233,11 @@ Where $s \in [1.4, 7.5]$ represents the guidance scale factor.
 | **Frontend Framework** | React | `19.3.1` | Reactive component hierarchy, state hooks, and UI reactivity |
 | **Frontend Tooling** | Vite | `8.3.6` | Sub-second Hot Module Replacement (HMR) and optimized rollup bundler |
 | **Styling & Theme** | Tailwind CSS | `4.3.4` | Modern architectural luxury neutral theme and CSS variables |
-| **Iconography** | Lucide React | `1.69.0` | Industrial product design UI icons (sliders, layers, cpu, eye) |
+| **3D Engine** | Three.js | `0.187.0` | WebGL hardware-accelerated 3D rendering pipeline |
+| **React 3D Bridge** | React Three Fiber | `9.8.2` | Declarative Three.js component bindings for React 19 |
+| **3D Helpers** | Drei | `10.7.9` | Camera controls, PBR environment lights, and GLTF asset loaders |
+| **Spatial Computing** | WebXR Device API | Native | Immersive Augmented Reality plane-tracking for 1:1 real-room projection |
+| **Iconography** | Lucide React | `1.69.0` | Industrial product design UI icons (pen, eraser, sliders, layers, eye) |
 | **Micro-Interactions**| Canvas Confetti | `1.9.4` | Visual celebration animation on successful 8K image synthesis |
 | **Backend Framework** | FastAPI | `0.110.0+`| Asynchronous ASGI Python web server with OpenAPI / Swagger |
 | **Server Engine** | Uvicorn | `0.28.0+` | High-throughput asynchronous worker process |
@@ -232,12 +250,16 @@ Where $s \in [1.4, 7.5]$ represents the guidance scale factor.
 | **Diffusion Engine** | Diffusers | `0.42.1` | Stable Diffusion ControlNet pipeline and scheduling engines |
 | **NLP Transformer** | Transformers | `5.22.2` | CLIP ViT-L/14 text tokenization and embedding generation |
 | **Hardware Accel** | Accelerate | `0.27.0+` | Hardware-agnostic memory management, device placement |
+| **3D Geometry** | Trimesh / PyVista | Latest | Polygon mesh processing, manifold checks, OBJ/GLB conversion |
+| **Isosurface Meshing**| PyMCubes | Latest | Fast C++ Marching Cubes isosurface extraction from voxel grids |
 | **Database** | SQLite3 | Native | Embedded persistent ACID gallery catalog (`furnforge.db`) |
-| **Model Checkpoint**| Stable Diffusion | `1.5` | Foundation 512x512 latent text-to-image diffusion checkpoint |
-| **Model Checkpoint**| ControlNet Scribble| `v11p` | `lllyasviel/control_v11p_sd15_scribble` (freehand sketch conditioning) |
-| **Model Checkpoint**| ControlNet Canny | `v11p` | `lllyasviel/control_v11p_sd15_canny` (high-contrast lineart conditioning) |
-| **Model Checkpoint**| LCM-LoRA | `sdv1-5`| `latent-consistency/lcm-lora-sdv1-5` (4-to-7 step fast distillation) |
-| **Model Checkpoint**| ResNet-50 | `V2` | Torchvision `ResNet50_Weights.IMAGENET1K_V2` |
+| **Diffusion Base** | Stable Diffusion 1.5 | `v1.5` | `stable-diffusion-v1-5/stable-diffusion-v1-5` (foundation latent model) |
+| **ControlNet Scribble**| ControlNet Scribble | `v11p` | `lllyasviel/control_v11p_sd15_scribble` (freehand sketch conditioning) |
+| **ControlNet Canny** | ControlNet Canny | `v11p` | `lllyasviel/control_v11p_sd15_canny` (high-contrast outline conditioning) |
+| **Consistency LoRA** | LCM-LoRA | `sdv1-5`| `latent-consistency/lcm-lora-sdv1-5` (4-to-7 step fast distillation) |
+| **Feature Extractor** | ResNet-50 | `V2` | Torchvision `ResNet50_Weights.IMAGENET1K_V2` |
+| **Neural 3D Engine** | TripoSR | `1.0` | `stabilityai/TripoSR` (fast single-image to 3D mesh & texture baking) |
+| **High-End 3D DiT** | Hunyuan3D-2mini | `v2` | `tencent/Hunyuan3D-2mini` (high-VRAM fallback for carved woodwork) |
 
 ---
 

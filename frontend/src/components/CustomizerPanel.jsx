@@ -344,7 +344,7 @@ export default function CustomizerPanel({
 
         {!hasImage && (
           <p className="text-center text-[11px] text-[#888] mt-2">
-            Please upload a sketch or choose a preset on the left to begin generation.
+            Please draw a sketch, upload an image, or choose a preset on the left to begin generation.
           </p>
         )}
       </div>

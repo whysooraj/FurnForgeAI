@@ -43,6 +43,15 @@
   background: #8B5A2B;
 }
 
+/* Hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 /* Before / After Slider clipping */
 .before-after-container {
   position: relative;
