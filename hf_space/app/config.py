@@ -101,6 +101,10 @@ def get_torch_device() -> str:
     forced = os.getenv("TORCH_DEVICE")
     if forced:
         return forced
+    # In Hugging Face ZeroGPU environments, default to CPU to avoid fake zero-weight allocation
+    # and daily GPU quota lockout, enabling unlimited fast 4-step LCM-LoRA generations.
+    if os.getenv("SPACES_ZERO_GPU") or "spaces" in sys.modules:
+        return "cpu"
     try:
         import torch
         if torch.cuda.is_available():

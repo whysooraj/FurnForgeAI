@@ -19,7 +19,7 @@ except ImportError:
                 return fn
             return decorator
 
-@spaces.GPU(duration=60)
+@spaces.GPU(duration=20)
 def generate_preview(prompt: str):
     """ZeroGPU entrypoint for dynamic A100 GPU allocation."""
     return f"FurnForge AI Generation Engine active for: '{prompt}'"
