@@ -66,4 +66,6 @@ backend/app/database/*.sqlite3
 .DS_Store
 Thumbs.db
 desktop.ini
+.wrangler/
+
 
