@@ -26,3 +26,4 @@ moderngl>=5.10.0
 # Optional fallback model (Priority 2: tencent/Hunyuan3D-2mini, CUDA GPU >= 6GB VRAM):
 # Install hy3dgen from https://github.com/Tencent-Hunyuan/Hunyuan3D-2
 
+gradio>=4.44.0
