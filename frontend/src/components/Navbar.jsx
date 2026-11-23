@@ -1,17 +1,23 @@
-import React from 'react';
-import { Armchair, Sparkles, Image as ImageIcon, BookOpen, Home } from 'lucide-react';
+import React, { useState } from 'react';
+import { Armchair, Sparkles, Image as ImageIcon, BookOpen, Home, Settings } from 'lucide-react';
+import BackendConfigModal from './BackendConfigModal';
 
-export default function Navbar({ activeTab, setActiveTab, backendStatus, onOpenTechModal }) {
+export default function Navbar({ activeTab, setActiveTab, backendStatus, onOpenTechModal, onBackendChanged }) {
+  const [isBackendModalOpen, setIsBackendModalOpen] = useState(false);
+
   const navigateTo = (tab) => {
     setActiveTab(tab);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const engineLabel = backendStatus?.pipeline_mode
-    ? backendStatus.pipeline_mode.includes('PyTorch')
-      ? 'SD1.5 ControlNet'
-      : 'Hybrid AI'
-    : 'CV/CNN Active';
+  const isOnline = backendStatus && backendStatus.status !== 'offline';
+  const engineLabel = isOnline
+    ? backendStatus?.pipeline_mode
+      ? backendStatus.pipeline_mode.includes('PyTorch')
+        ? 'SD1.5 ControlNet'
+        : 'Hybrid AI'
+      : 'CV/CNN Active'
+    : 'Backend Offline';
 
   return (
     <header className="sticky top-0 z-50 bg-[#F8F6F0]/95 backdrop-blur-md border-b border-[#E8E2D5] transition-all">
@@ -100,19 +106,33 @@ export default function Navbar({ activeTab, setActiveTab, backendStatus, onOpenT
             <span className="hidden sm:inline">AI Architecture</span>
           </button>
 
+          {/* Backend Status Pill (Clickable to configure) */}
           <div
-            className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-full bg-white border border-[#E8E2D5] text-[11px] sm:text-xs font-medium text-[#444] shadow-xs"
-            title={`Engine: ${engineLabel}`}
+            onClick={() => setIsBackendModalOpen(true)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setIsBackendModalOpen(true); }}
+            className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-full bg-white border border-[#E8E2D5] hover:border-[#8B5A2B]/40 hover:bg-[#FAF8F5] cursor-pointer text-[11px] sm:text-xs font-medium text-[#444] shadow-xs transition-all group"
+            title="Click to view or switch backend endpoint"
           >
             <span className="relative flex h-2 w-2 shrink-0">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              {isOnline ? (
+                <>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </>
+              ) : (
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+              )}
             </span>
             <span className="hidden lg:inline text-[#78716C]">Engine:</span>
             <span className="text-[#1A1A1E] font-semibold whitespace-nowrap hidden sm:inline">
               {engineLabel}
             </span>
-            <span className="text-[#1A1A1E] font-semibold sm:hidden">AI</span>
+            <span className="text-[#1A1A1E] font-semibold sm:hidden">
+              {isOnline ? 'AI' : 'Offline'}
+            </span>
+            <Settings className="w-3 h-3 text-[#A8A29E] group-hover:text-[#8B5A2B] group-hover:rotate-45 transition-transform ml-0.5" />
           </div>
 
           <button
@@ -123,6 +143,12 @@ export default function Navbar({ activeTab, setActiveTab, backendStatus, onOpenT
           </button>
         </div>
       </div>
+
+      <BackendConfigModal
+        isOpen={isBackendModalOpen}
+        onClose={() => setIsBackendModalOpen(false)}
+        onBackendChanged={onBackendChanged}
+      />
 
       {/* Mobile Navigation Bar (Overview / AI Studio / Gallery) */}
       <nav

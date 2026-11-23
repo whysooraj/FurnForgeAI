@@ -13,14 +13,22 @@ export default function App() {
   const [isTechModalOpen, setIsTechModalOpen] = useState(false);
   const [selectedPresetId, setSelectedPresetId] = useState(null);
 
+  const refreshStatus = async () => {
+    const status = await checkHealth();
+    setBackendStatus(status);
+  };
+
   useEffect(() => {
-    async function loadStatus() {
-      const status = await checkHealth();
-      setBackendStatus(status);
-    }
-    loadStatus();
-    const interval = setInterval(loadStatus, 15000);
-    return () => clearInterval(interval);
+    refreshStatus();
+    const interval = setInterval(refreshStatus, 15000);
+    const handleBackendUpdated = () => {
+      refreshStatus();
+    };
+    window.addEventListener('furnforge-backend-updated', handleBackendUpdated);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('furnforge-backend-updated', handleBackendUpdated);
+    };
   }, []);
 
   const handleSelectPresetForStudio = (presetId) => {
@@ -37,6 +45,7 @@ export default function App() {
         setActiveTab={setActiveTab}
         backendStatus={backendStatus}
         onOpenTechModal={() => setIsTechModalOpen(true)}
+        onBackendChanged={refreshStatus}
       />
 
       {/* Main Content Pages */}
