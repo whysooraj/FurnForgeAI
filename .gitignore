@@ -67,5 +67,7 @@ backend/app/database/*.sqlite3
 Thumbs.db
 desktop.ini
 .wrangler/
+hf_space/.git
+
 
 
