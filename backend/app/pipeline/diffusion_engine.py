@@ -22,6 +22,8 @@ from __future__ import annotations
 
 import gc
 import logging
+import os
+import sys
 import threading
 import time
 from typing import Callable, Optional
@@ -64,6 +66,9 @@ class DiffusionEngine:
     # ---------------------------------------------------------------- loading
     def load_async(self) -> None:
         if self.status in ("loading", "ready"):
+            return
+        if os.getenv("SPACES_ZERO_GPU") or "spaces" in sys.modules:
+            self.load()
             return
         threading.Thread(target=self.load, name="model-loader", daemon=True).start()
 
@@ -139,7 +144,12 @@ class DiffusionEngine:
                     except Exception as exc:  # fast mode simply becomes unavailable
                         logger.warning("LCM-LoRA unavailable: %s", exc)
 
-                pipe = pipe.to(self.device)
+                try:
+                    pipe = pipe.to(self.device)
+                except Exception as exc:
+                    logger.warning("Could not move pipeline to %s (%s); falling back to CPU", self.device, exc)
+                    self.device = "cpu"
+                    pipe = pipe.to("cpu")
 
                 # Img2img variant sharing the very same weights (no extra memory).
                 try:

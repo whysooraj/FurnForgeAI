@@ -2,19 +2,19 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://furnforge-api.sooraj.fun/api/:path*"
+      "destination": "https://whysooraj-funforge-backend.hf.space/api/:path*"
     },
     {
       "source": "/outputs/:path*",
-      "destination": "https://furnforge-api.sooraj.fun/outputs/:path*"
+      "destination": "https://whysooraj-funforge-backend.hf.space/outputs/:path*"
     },
     {
       "source": "/uploads/:path*",
-      "destination": "https://furnforge-api.sooraj.fun/uploads/:path*"
+      "destination": "https://whysooraj-funforge-backend.hf.space/uploads/:path*"
     },
     {
       "source": "/sample_sketches/:path*",
-      "destination": "https://furnforge-api.sooraj.fun/sample_sketches/:path*"
+      "destination": "https://whysooraj-funforge-backend.hf.space/sample_sketches/:path*"
     },
     {
       "source": "/(.*)",

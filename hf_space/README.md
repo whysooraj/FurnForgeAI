@@ -2,10 +2,10 @@
 title: FurnForge AI Backend
 emoji: 🛋️
 colorFrom: yellow
-colorTo: brown
+colorTo: gray
 sdk: gradio
 sdk_version: 4.44.0
-app_file: app.py
+app_file: run.py
 pinned: false
 ---
 
